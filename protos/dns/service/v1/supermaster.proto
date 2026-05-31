@@ -1,0 +1,84 @@
+syntax = "proto3";
+
+package dns.service.v1;
+
+import "buf/validate/validate.proto";
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+// Supermaster Service — for AXFR-based SLAVE zone replication.
+// Supermasters tell PowerDNS which IPs are allowed to send NOTIFY
+// and initiate automatic SLAVE zone provisioning.
+service DnsSupermasterService {
+  rpc CreateSupermaster(CreateSupermasterRequest) returns (CreateSupermasterResponse) {
+    option (google.api.http) = {
+      post: "/v1/supermasters"
+      body: "*"
+    };
+  }
+
+  rpc GetSupermaster(GetSupermasterRequest) returns (GetSupermasterResponse) {
+    option (google.api.http) = {
+      get: "/v1/supermasters/{id}"
+    };
+  }
+
+  rpc ListSupermasters(ListSupermastersRequest) returns (ListSupermastersResponse) {
+    option (google.api.http) = {
+      get: "/v1/supermasters"
+    };
+  }
+
+  rpc DeleteSupermaster(DeleteSupermasterRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete: "/v1/supermasters/{id}"
+    };
+  }
+}
+
+message Supermaster {
+  string id = 1 [json_name = "id"];
+  uint32 tenant_id = 2 [json_name = "tenantId"];
+  string ip = 3 [json_name = "ip"];
+  string nameserver = 4 [json_name = "nameserver"];
+  string account = 5 [json_name = "account"];
+  google.protobuf.Timestamp create_time = 10 [json_name = "createTime"];
+}
+
+message CreateSupermasterRequest {
+  string ip = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string.min_len = 1,
+    json_name = "ip"
+  ];
+  string nameserver = 2 [(google.api.field_behavior) = REQUIRED, json_name = "nameserver"];
+  string account = 3 [json_name = "account"];
+}
+
+message CreateSupermasterResponse {
+  Supermaster supermaster = 1 [json_name = "supermaster"];
+}
+
+message GetSupermasterRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED, json_name = "id"];
+}
+
+message GetSupermasterResponse {
+  Supermaster supermaster = 1 [json_name = "supermaster"];
+}
+
+message ListSupermastersRequest {
+  int32 page = 1 [json_name = "page"];
+  int32 page_size = 2 [json_name = "pageSize"];
+}
+
+message ListSupermastersResponse {
+  repeated Supermaster supermasters = 1 [json_name = "supermasters"];
+  int32 total = 2 [json_name = "total"];
+}
+
+message DeleteSupermasterRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED, json_name = "id"];
+}

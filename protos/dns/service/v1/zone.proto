@@ -1,0 +1,167 @@
+syntax = "proto3";
+
+package dns.service.v1;
+
+import "buf/validate/validate.proto";
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+// Zone Service — manages PowerDNS zones (forward + reverse).
+service DnsZoneService {
+  rpc CreateZone(CreateZoneRequest) returns (CreateZoneResponse) {
+    option (google.api.http) = {
+      post: "/v1/zones"
+      body: "*"
+    };
+  }
+
+  rpc GetZone(GetZoneRequest) returns (GetZoneResponse) {
+    option (google.api.http) = {
+      get: "/v1/zones/{id}"
+    };
+  }
+
+  rpc ListZones(ListZonesRequest) returns (ListZonesResponse) {
+    option (google.api.http) = {
+      get: "/v1/zones"
+    };
+  }
+
+  rpc UpdateZone(UpdateZoneRequest) returns (UpdateZoneResponse) {
+    option (google.api.http) = {
+      put: "/v1/zones/{id}"
+      body: "*"
+    };
+  }
+
+  rpc DeleteZone(DeleteZoneRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete: "/v1/zones/{id}"
+    };
+  }
+
+  // Export zone in BIND format (AXFR-style listing).
+  rpc ExportZone(ExportZoneRequest) returns (ExportZoneResponse) {
+    option (google.api.http) = {
+      get: "/v1/zones/{id}/export"
+    };
+  }
+
+  // Trigger a NOTIFY to slaves (only for MASTER zones).
+  rpc NotifyZone(NotifyZoneRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/zones/{id}/notify"
+      body: "*"
+    };
+  }
+}
+
+enum ZoneKind {
+  ZONE_KIND_UNSPECIFIED = 0;
+  ZONE_KIND_NATIVE = 1;
+  ZONE_KIND_MASTER = 2;
+  ZONE_KIND_SLAVE = 3;
+  ZONE_KIND_PRODUCER = 4;
+  ZONE_KIND_CONSUMER = 5;
+}
+
+message Zone {
+  // Local UUID assigned by this service.
+  string id = 1 [json_name = "id"];
+
+  uint32 tenant_id = 2 [json_name = "tenantId"];
+
+  // PowerDNS zone id (e.g. "example.com.").
+  string pdns_id = 3 [json_name = "pdnsId"];
+
+  // Canonical zone name (e.g. "example.com.").
+  string name = 4 [json_name = "name"];
+
+  ZoneKind kind = 5 [json_name = "kind"];
+
+  // For SLAVE zones — master IPs (comma separated).
+  string masters = 6 [json_name = "masters"];
+
+  // SOA serial. 0 if unknown.
+  uint32 serial = 7 [json_name = "serial"];
+
+  bool dnssec_enabled = 8 [json_name = "dnssecEnabled"];
+
+  // Local description / owner notes.
+  string description = 9 [json_name = "description"];
+
+  // Optional ID of the ZoneTemplate this zone was created from.
+  string template_id = 10 [json_name = "templateId"];
+
+  google.protobuf.Timestamp create_time = 20 [json_name = "createTime"];
+  google.protobuf.Timestamp update_time = 21 [json_name = "updateTime"];
+}
+
+message CreateZoneRequest {
+  string name = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 255,
+    json_name = "name"
+  ];
+  ZoneKind kind = 2 [(google.api.field_behavior) = REQUIRED, json_name = "kind"];
+  repeated string nameservers = 3 [json_name = "nameservers"];
+  string masters = 4 [json_name = "masters"];
+  string description = 5 [json_name = "description"];
+  string template_id = 6 [json_name = "templateId"];
+  bool dnssec_enabled = 7 [json_name = "dnssecEnabled"];
+}
+
+message CreateZoneResponse {
+  Zone zone = 1 [json_name = "zone"];
+}
+
+message GetZoneRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED, json_name = "id"];
+}
+
+message GetZoneResponse {
+  Zone zone = 1 [json_name = "zone"];
+}
+
+message ListZonesRequest {
+  int32 page = 1 [json_name = "page"];
+  int32 page_size = 2 [json_name = "pageSize"];
+  string search = 3 [json_name = "search"];
+  ZoneKind kind = 4 [json_name = "kind"];
+}
+
+message ListZonesResponse {
+  repeated Zone zones = 1 [json_name = "zones"];
+  int32 total = 2 [json_name = "total"];
+}
+
+message UpdateZoneRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED, json_name = "id"];
+  optional ZoneKind kind = 2 [json_name = "kind"];
+  optional string masters = 3 [json_name = "masters"];
+  optional string description = 4 [json_name = "description"];
+  optional bool dnssec_enabled = 5 [json_name = "dnssecEnabled"];
+}
+
+message UpdateZoneResponse {
+  Zone zone = 1 [json_name = "zone"];
+}
+
+message DeleteZoneRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED, json_name = "id"];
+}
+
+message ExportZoneRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED, json_name = "id"];
+}
+
+message ExportZoneResponse {
+  string bind_zone = 1 [json_name = "bindZone"];
+}
+
+message NotifyZoneRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED, json_name = "id"];
+}

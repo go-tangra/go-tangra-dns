@@ -1,0 +1,34 @@
+version: v2
+
+modules:
+  - path: protos
+    name: buf.build/go-tangra/dns
+    lint:
+      use:
+        - STANDARD
+      except:
+        - FIELD_NOT_REQUIRED
+        - PACKAGE_NO_IMPORT_CYCLE
+        - RPC_RESPONSE_STANDARD_NAME
+        - RPC_REQUEST_STANDARD_NAME
+        - RPC_REQUEST_RESPONSE_UNIQUE
+        - ENUM_VALUE_PREFIX
+        - ENUM_ZERO_VALUE_SUFFIX
+        - IMPORT_USED
+    breaking:
+      use:
+        - FILE
+
+deps:
+  - 'buf.build/googleapis/googleapis'
+  - 'buf.build/bufbuild/protovalidate'
+  - 'buf.build/kratos/apis'
+  - 'buf.build/menta2k-org/redact'
+
+lint:
+  use:
+    - DEFAULT
+
+breaking:
+  use:
+    - FILE

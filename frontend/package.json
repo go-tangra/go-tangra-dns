@@ -1,0 +1,28 @@
+{
+  "name": "@tangra/module-dns",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite --port 3005"
+  },
+  "dependencies": {
+    "@module-federation/runtime": "^0.21.6"
+  },
+  "devDependencies": {
+    "@module-federation/vite": "1.11.0",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "ant-design-vue": "^4.2.6",
+    "autoprefixer": "^10.4.24",
+    "echarts": "^6.0.0",
+    "pinia": "2.2.2",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.19",
+    "vite": "^6.0.3",
+    "vue": "^3.5.29",
+    "vue-echarts": "^8.0.1",
+    "vue-i18n": "^10.0.5",
+    "vue-router": "^4.5.0"
+  }
+}

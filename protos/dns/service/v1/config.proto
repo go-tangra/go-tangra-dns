@@ -1,0 +1,68 @@
+syntax = "proto3";
+
+package dns.service.v1;
+
+import "google/api/annotations.proto";
+
+// DnsConfigService manages platform-level configuration for the PowerDNS
+// Recursor (the client-facing resolver) and the Authoritative server.
+// Updates are persisted, rendered into each service's include-dir config
+// file, and applied by restarting the affected container.
+service DnsConfigService {
+  rpc GetDnsConfig(GetDnsConfigRequest) returns (GetDnsConfigResponse) {
+    option (google.api.http) = {
+      get: "/v1/config"
+    };
+  }
+
+  rpc UpdateDnsConfig(UpdateDnsConfigRequest) returns (UpdateDnsConfigResponse) {
+    option (google.api.http) = {
+      put: "/v1/config"
+      body: "*"
+    };
+  }
+}
+
+// RecursorConfig holds the editable pdns-recursor settings.
+message RecursorConfig {
+  // Addresses the recursor listens on (local-address). e.g. ["0.0.0.0", "::"].
+  repeated string local_address = 1 [json_name = "localAddress"];
+  // Listen port (local-port). 0 = default (53).
+  uint32 local_port = 2 [json_name = "localPort"];
+  // Netmasks allowed to query the recursor (allow-from).
+  repeated string allow_from = 3 [json_name = "allowFrom"];
+  // Upstream resolvers for everything not locally forwarded
+  // (forward-zones-recurse=.=...). Empty = use root hints.
+  repeated string upstream_resolvers = 4 [json_name = "upstreamResolvers"];
+  // Disable DNSSEC validation (needed for internal/unsigned zones).
+  bool dnssec_disabled = 5 [json_name = "dnssecDisabled"];
+}
+
+// AuthConfig holds the editable PowerDNS Authoritative settings.
+message AuthConfig {
+  // Addresses the auth server listens on (local-address).
+  repeated string local_address = 1 [json_name = "localAddress"];
+  // Listen port (local-port). 0 = default (53).
+  uint32 local_port = 2 [json_name = "localPort"];
+  // Netmasks allowed to perform AXFR (allow-axfr-ipranges).
+  repeated string allow_axfr = 3 [json_name = "allowAxfr"];
+}
+
+message GetDnsConfigRequest {}
+
+message GetDnsConfigResponse {
+  RecursorConfig recursor = 1 [json_name = "recursor"];
+  AuthConfig authoritative = 2 [json_name = "authoritative"];
+}
+
+message UpdateDnsConfigRequest {
+  RecursorConfig recursor = 1 [json_name = "recursor"];
+  AuthConfig authoritative = 2 [json_name = "authoritative"];
+}
+
+message UpdateDnsConfigResponse {
+  RecursorConfig recursor = 1 [json_name = "recursor"];
+  AuthConfig authoritative = 2 [json_name = "authoritative"];
+  // Services that were restarted to apply the change.
+  repeated string restarted = 3 [json_name = "restarted"];
+}

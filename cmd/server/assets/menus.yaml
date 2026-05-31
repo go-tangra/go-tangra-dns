@@ -1,0 +1,125 @@
+# DNS Module Menu Definitions
+# This file defines the menu structure for the DNS module.
+# Used by admin service for dynamic menu registration.
+
+module:
+  id: dns
+  name: DNS
+  description: DNS zone and record management (PowerDNS)
+
+menus:
+  - id: dns
+    parent_id: null
+    type: CATALOG
+    name: DNS
+    path: /dns
+    icon: lucide:globe
+    order: 310
+    authority:
+      - platform:admin
+      - tenant:manager
+
+  - id: dns-dashboard
+    parent_id: dns
+    type: MENU
+    name: Dashboard
+    path: dashboard
+    component: app/dns/dashboard/index.vue
+    icon: lucide:layout-dashboard
+    order: 0
+    authority:
+      - platform:admin
+      - tenant:manager
+
+  - id: dns-zones
+    parent_id: dns
+    type: MENU
+    name: Zones
+    path: zones
+    component: app/dns/zones/index.vue
+    icon: lucide:globe
+    order: 1
+    authority:
+      - platform:admin
+      - tenant:manager
+
+  - id: dns-templates
+    parent_id: dns
+    type: MENU
+    name: Zone Templates
+    path: templates
+    component: app/dns/templates/index.vue
+    icon: lucide:layout-template
+    order: 3
+    authority:
+      - platform:admin
+      - tenant:manager
+
+  - id: dns-supermasters
+    parent_id: dns
+    type: MENU
+    name: Supermasters
+    path: supermasters
+    component: app/dns/supermasters/index.vue
+    icon: lucide:server
+    order: 4
+    authority:
+      - platform:admin
+      - tenant:manager
+
+  - id: dns-configuration
+    parent_id: dns
+    type: MENU
+    name: Configuration
+    path: configuration
+    component: app/dns/configuration/index.vue
+    icon: lucide:settings
+    order: 5
+    authority:
+      - platform:admin
+
+permission_groups:
+  - name: DNS
+    module: dns
+    description: DNS Management Permissions
+    permissions:
+      - name: View Zones
+        code: dns.zone.view
+        description: View DNS zones and records
+      - name: Manage Zones
+        code: dns.zone.manage
+        description: Create, update, and delete zones and records
+      - name: View Templates
+        code: dns.template.view
+        description: View zone templates
+      - name: Manage Templates
+        code: dns.template.manage
+        description: Create, update, and delete zone templates
+      - name: View Supermasters
+        code: dns.supermaster.view
+        description: View supermasters
+      - name: Manage Supermasters
+        code: dns.supermaster.manage
+        description: Create and delete supermasters
+
+roles:
+  - name: DNS Administrator
+    code: dns.admin
+    description: Full access to DNS module
+    is_system: true
+    permissions:
+      - dns.zone.view
+      - dns.zone.manage
+      - dns.template.view
+      - dns.template.manage
+      - dns.supermaster.view
+      - dns.supermaster.manage
+
+  - name: DNS Viewer
+    code: dns.viewer
+    description: Read-only access to DNS module
+    is_system: true
+    permissions:
+      - dns.zone.view
+      - dns.template.view
+      - dns.supermaster.view

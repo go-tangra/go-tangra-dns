@@ -1,0 +1,123 @@
+syntax = "proto3";
+
+package dns.service.v1;
+
+import "buf/validate/validate.proto";
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+import "google/protobuf/empty.proto";
+
+// Record Service — manages DNS records within a zone.
+// Records are not stored locally; all operations proxy to PowerDNS.
+service DnsRecordService {
+  rpc ListRecords(ListRecordsRequest) returns (ListRecordsResponse) {
+    option (google.api.http) = {
+      get: "/v1/zones/{zone_id}/records"
+    };
+  }
+
+  // Create or replace an RRset (one name+type+ttl with N content lines).
+  rpc CreateRecord(CreateRecordRequest) returns (CreateRecordResponse) {
+    option (google.api.http) = {
+      post: "/v1/zones/{zone_id}/records"
+      body: "*"
+    };
+  }
+
+  // Update an existing RRset (replaces all contents for the name+type).
+  rpc UpdateRecord(UpdateRecordRequest) returns (UpdateRecordResponse) {
+    option (google.api.http) = {
+      put: "/v1/zones/{zone_id}/records/{name}/{type}"
+      body: "*"
+    };
+  }
+
+  rpc DeleteRecord(DeleteRecordRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete: "/v1/zones/{zone_id}/records/{name}/{type}"
+    };
+  }
+}
+
+// Record types supported by PowerDNS. Add as needed.
+enum RecordType {
+  RECORD_TYPE_UNSPECIFIED = 0;
+  RECORD_TYPE_A = 1;
+  RECORD_TYPE_AAAA = 2;
+  RECORD_TYPE_CNAME = 3;
+  RECORD_TYPE_MX = 4;
+  RECORD_TYPE_NS = 5;
+  RECORD_TYPE_PTR = 6;
+  RECORD_TYPE_SRV = 7;
+  RECORD_TYPE_TXT = 8;
+  RECORD_TYPE_SOA = 9;
+  RECORD_TYPE_CAA = 10;
+  RECORD_TYPE_DS = 11;
+  RECORD_TYPE_DNSKEY = 12;
+  RECORD_TYPE_TLSA = 13;
+  RECORD_TYPE_SSHFP = 14;
+  RECORD_TYPE_SPF = 15;
+  RECORD_TYPE_NAPTR = 16;
+}
+
+// A single content line within an RRset.
+message RecordContent {
+  string content = 1 [json_name = "content"];
+  bool disabled = 2 [json_name = "disabled"];
+}
+
+// An RRset: name + type + ttl + N content lines.
+message Record {
+  string name = 1 [json_name = "name"];
+  RecordType type = 2 [json_name = "type"];
+  uint32 ttl = 3 [json_name = "ttl"];
+  repeated RecordContent contents = 4 [json_name = "contents"];
+  string comment = 5 [json_name = "comment"];
+}
+
+message ListRecordsRequest {
+  string zone_id = 1 [(google.api.field_behavior) = REQUIRED, json_name = "zoneId"];
+  RecordType type = 2 [json_name = "type"];
+  string search = 3 [json_name = "search"];
+}
+
+message ListRecordsResponse {
+  repeated Record records = 1 [json_name = "records"];
+  int32 total = 2 [json_name = "total"];
+}
+
+message CreateRecordRequest {
+  string zone_id = 1 [(google.api.field_behavior) = REQUIRED, json_name = "zoneId"];
+  string name = 2 [
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string.min_len = 1,
+    json_name = "name"
+  ];
+  RecordType type = 3 [(google.api.field_behavior) = REQUIRED, json_name = "type"];
+  uint32 ttl = 4 [json_name = "ttl"];
+  repeated RecordContent contents = 5 [json_name = "contents"];
+  string comment = 6 [json_name = "comment"];
+}
+
+message CreateRecordResponse {
+  Record record = 1 [json_name = "record"];
+}
+
+message UpdateRecordRequest {
+  string zone_id = 1 [(google.api.field_behavior) = REQUIRED, json_name = "zoneId"];
+  string name = 2 [(google.api.field_behavior) = REQUIRED, json_name = "name"];
+  string type = 3 [(google.api.field_behavior) = REQUIRED, json_name = "type"];
+  uint32 ttl = 4 [json_name = "ttl"];
+  repeated RecordContent contents = 5 [json_name = "contents"];
+  string comment = 6 [json_name = "comment"];
+}
+
+message UpdateRecordResponse {
+  Record record = 1 [json_name = "record"];
+}
+
+message DeleteRecordRequest {
+  string zone_id = 1 [(google.api.field_behavior) = REQUIRED, json_name = "zoneId"];
+  string name = 2 [(google.api.field_behavior) = REQUIRED, json_name = "name"];
+  string type = 3 [(google.api.field_behavior) = REQUIRED, json_name = "type"];
+}

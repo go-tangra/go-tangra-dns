@@ -1,0 +1,113 @@
+syntax = "proto3";
+
+package dns.service.v1;
+
+import "buf/validate/validate.proto";
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+// Zone Template Service — Poweradmin-style reusable zone templates.
+// Each template defines a set of record templates with placeholders
+// like [ZONE] that get expanded when creating a zone.
+service DnsZoneTemplateService {
+  rpc CreateZoneTemplate(CreateZoneTemplateRequest) returns (CreateZoneTemplateResponse) {
+    option (google.api.http) = {
+      post: "/v1/zone-templates"
+      body: "*"
+    };
+  }
+
+  rpc GetZoneTemplate(GetZoneTemplateRequest) returns (GetZoneTemplateResponse) {
+    option (google.api.http) = {
+      get: "/v1/zone-templates/{id}"
+    };
+  }
+
+  rpc ListZoneTemplates(ListZoneTemplatesRequest) returns (ListZoneTemplatesResponse) {
+    option (google.api.http) = {
+      get: "/v1/zone-templates"
+    };
+  }
+
+  rpc UpdateZoneTemplate(UpdateZoneTemplateRequest) returns (UpdateZoneTemplateResponse) {
+    option (google.api.http) = {
+      put: "/v1/zone-templates/{id}"
+      body: "*"
+    };
+  }
+
+  rpc DeleteZoneTemplate(DeleteZoneTemplateRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete: "/v1/zone-templates/{id}"
+    };
+  }
+}
+
+// A record stanza inside a template.
+// "name" may contain [ZONE] which is replaced with the zone name at creation.
+message TemplateRecord {
+  string name = 1 [json_name = "name"];
+  string type = 2 [json_name = "type"];
+  uint32 ttl = 3 [json_name = "ttl"];
+  string content = 4 [json_name = "content"];
+  uint32 priority = 5 [json_name = "priority"];
+}
+
+message ZoneTemplate {
+  string id = 1 [json_name = "id"];
+  uint32 tenant_id = 2 [json_name = "tenantId"];
+  string name = 3 [json_name = "name"];
+  string description = 4 [json_name = "description"];
+  repeated TemplateRecord records = 5 [json_name = "records"];
+  google.protobuf.Timestamp create_time = 10 [json_name = "createTime"];
+  google.protobuf.Timestamp update_time = 11 [json_name = "updateTime"];
+}
+
+message CreateZoneTemplateRequest {
+  string name = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (buf.validate.field).string.min_len = 1,
+    json_name = "name"
+  ];
+  string description = 2 [json_name = "description"];
+  repeated TemplateRecord records = 3 [json_name = "records"];
+}
+
+message CreateZoneTemplateResponse {
+  ZoneTemplate template = 1 [json_name = "template"];
+}
+
+message GetZoneTemplateRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED, json_name = "id"];
+}
+
+message GetZoneTemplateResponse {
+  ZoneTemplate template = 1 [json_name = "template"];
+}
+
+message ListZoneTemplatesRequest {
+  int32 page = 1 [json_name = "page"];
+  int32 page_size = 2 [json_name = "pageSize"];
+}
+
+message ListZoneTemplatesResponse {
+  repeated ZoneTemplate templates = 1 [json_name = "templates"];
+  int32 total = 2 [json_name = "total"];
+}
+
+message UpdateZoneTemplateRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED, json_name = "id"];
+  optional string name = 2 [json_name = "name"];
+  optional string description = 3 [json_name = "description"];
+  repeated TemplateRecord records = 4 [json_name = "records"];
+}
+
+message UpdateZoneTemplateResponse {
+  ZoneTemplate template = 1 [json_name = "template"];
+}
+
+message DeleteZoneTemplateRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED, json_name = "id"];
+}

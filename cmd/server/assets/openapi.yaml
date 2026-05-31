@@ -1,0 +1,1095 @@
+# Generated with protoc-gen-openapi
+# https://github.com/google/gnostic/tree/master/cmd/protoc-gen-openapi
+
+openapi: 3.0.3
+info:
+    title: ""
+    version: 0.0.1
+paths:
+    /v1/config:
+        get:
+            tags:
+                - DnsConfigService
+            operationId: DnsConfigService_GetDnsConfig
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetDnsConfigResponse'
+        put:
+            tags:
+                - DnsConfigService
+            operationId: DnsConfigService_UpdateDnsConfig
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/UpdateDnsConfigRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UpdateDnsConfigResponse'
+    /v1/dashboard/query:
+        get:
+            tags:
+                - DnsDashboardService
+            description: Single point-in-time evaluation. Mirrors /api/v1/query.
+            operationId: DnsDashboardService_InstantQuery
+            parameters:
+                - name: query
+                  in: query
+                  schema:
+                    type: string
+                - name: time
+                  in: query
+                  description: 'Optional evaluation timestamp. Default: server "now".'
+                  schema:
+                    type: string
+                    format: date-time
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/InstantQueryResponse'
+    /v1/dashboard/query_range:
+        get:
+            tags:
+                - DnsDashboardService
+            description: Time-windowed evaluation. Mirrors /api/v1/query_range.
+            operationId: DnsDashboardService_RangeQuery
+            parameters:
+                - name: query
+                  in: query
+                  schema:
+                    type: string
+                - name: start
+                  in: query
+                  schema:
+                    type: string
+                    format: date-time
+                - name: end
+                  in: query
+                  schema:
+                    type: string
+                    format: date-time
+                - name: stepSeconds
+                  in: query
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/RangeQueryResponse'
+    /v1/supermasters:
+        get:
+            tags:
+                - DnsSupermasterService
+            operationId: DnsSupermasterService_ListSupermasters
+            parameters:
+                - name: page
+                  in: query
+                  schema:
+                    type: integer
+                    format: int32
+                - name: pageSize
+                  in: query
+                  schema:
+                    type: integer
+                    format: int32
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListSupermastersResponse'
+        post:
+            tags:
+                - DnsSupermasterService
+            operationId: DnsSupermasterService_CreateSupermaster
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/CreateSupermasterRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CreateSupermasterResponse'
+    /v1/supermasters/{id}:
+        get:
+            tags:
+                - DnsSupermasterService
+            operationId: DnsSupermasterService_GetSupermaster
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetSupermasterResponse'
+        delete:
+            tags:
+                - DnsSupermasterService
+            operationId: DnsSupermasterService_DeleteSupermaster
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+    /v1/zone-templates:
+        get:
+            tags:
+                - DnsZoneTemplateService
+            operationId: DnsZoneTemplateService_ListZoneTemplates
+            parameters:
+                - name: page
+                  in: query
+                  schema:
+                    type: integer
+                    format: int32
+                - name: pageSize
+                  in: query
+                  schema:
+                    type: integer
+                    format: int32
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListZoneTemplatesResponse'
+        post:
+            tags:
+                - DnsZoneTemplateService
+            operationId: DnsZoneTemplateService_CreateZoneTemplate
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/CreateZoneTemplateRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CreateZoneTemplateResponse'
+    /v1/zone-templates/{id}:
+        get:
+            tags:
+                - DnsZoneTemplateService
+            operationId: DnsZoneTemplateService_GetZoneTemplate
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetZoneTemplateResponse'
+        put:
+            tags:
+                - DnsZoneTemplateService
+            operationId: DnsZoneTemplateService_UpdateZoneTemplate
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/UpdateZoneTemplateRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UpdateZoneTemplateResponse'
+        delete:
+            tags:
+                - DnsZoneTemplateService
+            operationId: DnsZoneTemplateService_DeleteZoneTemplate
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+    /v1/zones:
+        get:
+            tags:
+                - DnsZoneService
+            operationId: DnsZoneService_ListZones
+            parameters:
+                - name: page
+                  in: query
+                  schema:
+                    type: integer
+                    format: int32
+                - name: pageSize
+                  in: query
+                  schema:
+                    type: integer
+                    format: int32
+                - name: search
+                  in: query
+                  schema:
+                    type: string
+                - name: kind
+                  in: query
+                  schema:
+                    enum:
+                        - ZONE_KIND_UNSPECIFIED
+                        - ZONE_KIND_NATIVE
+                        - ZONE_KIND_MASTER
+                        - ZONE_KIND_SLAVE
+                        - ZONE_KIND_PRODUCER
+                        - ZONE_KIND_CONSUMER
+                    type: string
+                    format: enum
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListZonesResponse'
+        post:
+            tags:
+                - DnsZoneService
+            operationId: DnsZoneService_CreateZone
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/CreateZoneRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CreateZoneResponse'
+    /v1/zones/{id}:
+        get:
+            tags:
+                - DnsZoneService
+            operationId: DnsZoneService_GetZone
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetZoneResponse'
+        put:
+            tags:
+                - DnsZoneService
+            operationId: DnsZoneService_UpdateZone
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/UpdateZoneRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UpdateZoneResponse'
+        delete:
+            tags:
+                - DnsZoneService
+            operationId: DnsZoneService_DeleteZone
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+    /v1/zones/{id}/export:
+        get:
+            tags:
+                - DnsZoneService
+            description: Export zone in BIND format (AXFR-style listing).
+            operationId: DnsZoneService_ExportZone
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ExportZoneResponse'
+    /v1/zones/{id}/notify:
+        post:
+            tags:
+                - DnsZoneService
+            description: Trigger a NOTIFY to slaves (only for MASTER zones).
+            operationId: DnsZoneService_NotifyZone
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/NotifyZoneRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+    /v1/zones/{zoneId}/records:
+        get:
+            tags:
+                - DnsRecordService
+            operationId: DnsRecordService_ListRecords
+            parameters:
+                - name: zoneId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+                - name: type
+                  in: query
+                  schema:
+                    enum:
+                        - RECORD_TYPE_UNSPECIFIED
+                        - RECORD_TYPE_A
+                        - RECORD_TYPE_AAAA
+                        - RECORD_TYPE_CNAME
+                        - RECORD_TYPE_MX
+                        - RECORD_TYPE_NS
+                        - RECORD_TYPE_PTR
+                        - RECORD_TYPE_SRV
+                        - RECORD_TYPE_TXT
+                        - RECORD_TYPE_SOA
+                        - RECORD_TYPE_CAA
+                        - RECORD_TYPE_DS
+                        - RECORD_TYPE_DNSKEY
+                        - RECORD_TYPE_TLSA
+                        - RECORD_TYPE_SSHFP
+                        - RECORD_TYPE_SPF
+                        - RECORD_TYPE_NAPTR
+                    type: string
+                    format: enum
+                - name: search
+                  in: query
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListRecordsResponse'
+        post:
+            tags:
+                - DnsRecordService
+            description: Create or replace an RRset (one name+type+ttl with N content lines).
+            operationId: DnsRecordService_CreateRecord
+            parameters:
+                - name: zoneId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/CreateRecordRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CreateRecordResponse'
+    /v1/zones/{zoneId}/records/{name}/{type}:
+        put:
+            tags:
+                - DnsRecordService
+            description: Update an existing RRset (replaces all contents for the name+type).
+            operationId: DnsRecordService_UpdateRecord
+            parameters:
+                - name: zoneId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+                - name: name
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+                - name: type
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/UpdateRecordRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UpdateRecordResponse'
+        delete:
+            tags:
+                - DnsRecordService
+            operationId: DnsRecordService_DeleteRecord
+            parameters:
+                - name: zoneId
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+                - name: name
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+                - name: type
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+components:
+    schemas:
+        AuthConfig:
+            type: object
+            properties:
+                localAddress:
+                    type: array
+                    items:
+                        type: string
+                    description: Addresses the auth server listens on (local-address).
+                localPort:
+                    type: integer
+                    description: Listen port (local-port). 0 = default (53).
+                    format: uint32
+                allowAxfr:
+                    type: array
+                    items:
+                        type: string
+                    description: Netmasks allowed to perform AXFR (allow-axfr-ipranges).
+            description: AuthConfig holds the editable PowerDNS Authoritative settings.
+        CreateRecordRequest:
+            required:
+                - zoneId
+                - name
+                - type
+            type: object
+            properties:
+                zoneId:
+                    type: string
+                name:
+                    type: string
+                type:
+                    enum:
+                        - RECORD_TYPE_UNSPECIFIED
+                        - RECORD_TYPE_A
+                        - RECORD_TYPE_AAAA
+                        - RECORD_TYPE_CNAME
+                        - RECORD_TYPE_MX
+                        - RECORD_TYPE_NS
+                        - RECORD_TYPE_PTR
+                        - RECORD_TYPE_SRV
+                        - RECORD_TYPE_TXT
+                        - RECORD_TYPE_SOA
+                        - RECORD_TYPE_CAA
+                        - RECORD_TYPE_DS
+                        - RECORD_TYPE_DNSKEY
+                        - RECORD_TYPE_TLSA
+                        - RECORD_TYPE_SSHFP
+                        - RECORD_TYPE_SPF
+                        - RECORD_TYPE_NAPTR
+                    type: string
+                    format: enum
+                ttl:
+                    type: integer
+                    format: uint32
+                contents:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/RecordContent'
+                comment:
+                    type: string
+        CreateRecordResponse:
+            type: object
+            properties:
+                record:
+                    $ref: '#/components/schemas/Record'
+        CreateSupermasterRequest:
+            required:
+                - ip
+                - nameserver
+            type: object
+            properties:
+                ip:
+                    type: string
+                nameserver:
+                    type: string
+                account:
+                    type: string
+        CreateSupermasterResponse:
+            type: object
+            properties:
+                supermaster:
+                    $ref: '#/components/schemas/Supermaster'
+        CreateZoneRequest:
+            required:
+                - name
+                - kind
+            type: object
+            properties:
+                name:
+                    type: string
+                kind:
+                    enum:
+                        - ZONE_KIND_UNSPECIFIED
+                        - ZONE_KIND_NATIVE
+                        - ZONE_KIND_MASTER
+                        - ZONE_KIND_SLAVE
+                        - ZONE_KIND_PRODUCER
+                        - ZONE_KIND_CONSUMER
+                    type: string
+                    format: enum
+                nameservers:
+                    type: array
+                    items:
+                        type: string
+                masters:
+                    type: string
+                description:
+                    type: string
+                templateId:
+                    type: string
+                dnssecEnabled:
+                    type: boolean
+        CreateZoneResponse:
+            type: object
+            properties:
+                zone:
+                    $ref: '#/components/schemas/Zone'
+        CreateZoneTemplateRequest:
+            required:
+                - name
+            type: object
+            properties:
+                name:
+                    type: string
+                description:
+                    type: string
+                records:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/TemplateRecord'
+        CreateZoneTemplateResponse:
+            type: object
+            properties:
+                template:
+                    $ref: '#/components/schemas/ZoneTemplate'
+        ExportZoneResponse:
+            type: object
+            properties:
+                bindZone:
+                    type: string
+        GetDnsConfigResponse:
+            type: object
+            properties:
+                recursor:
+                    $ref: '#/components/schemas/RecursorConfig'
+                authoritative:
+                    $ref: '#/components/schemas/AuthConfig'
+        GetSupermasterResponse:
+            type: object
+            properties:
+                supermaster:
+                    $ref: '#/components/schemas/Supermaster'
+        GetZoneResponse:
+            type: object
+            properties:
+                zone:
+                    $ref: '#/components/schemas/Zone'
+        GetZoneTemplateResponse:
+            type: object
+            properties:
+                template:
+                    $ref: '#/components/schemas/ZoneTemplate'
+        InstantQueryResponse:
+            type: object
+            properties:
+                series:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/InstantSample'
+        InstantSample:
+            type: object
+            properties:
+                labels:
+                    type: object
+                    additionalProperties:
+                        type: string
+                timestamp:
+                    type: string
+                    format: date-time
+                value:
+                    type: number
+                    format: double
+                hasValue:
+                    type: boolean
+        ListRecordsResponse:
+            type: object
+            properties:
+                records:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/Record'
+                total:
+                    type: integer
+                    format: int32
+        ListSupermastersResponse:
+            type: object
+            properties:
+                supermasters:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/Supermaster'
+                total:
+                    type: integer
+                    format: int32
+        ListZoneTemplatesResponse:
+            type: object
+            properties:
+                templates:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/ZoneTemplate'
+                total:
+                    type: integer
+                    format: int32
+        ListZonesResponse:
+            type: object
+            properties:
+                zones:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/Zone'
+                total:
+                    type: integer
+                    format: int32
+        NotifyZoneRequest:
+            required:
+                - id
+            type: object
+            properties:
+                id:
+                    type: string
+        RangeQueryResponse:
+            type: object
+            properties:
+                series:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/RangeSeries'
+        RangeSeries:
+            type: object
+            properties:
+                labels:
+                    type: object
+                    additionalProperties:
+                        type: string
+                timestamps:
+                    type: array
+                    items:
+                        type: string
+                        format: date-time
+                values:
+                    type: array
+                    items:
+                        type: number
+                        format: double
+        Record:
+            type: object
+            properties:
+                name:
+                    type: string
+                type:
+                    enum:
+                        - RECORD_TYPE_UNSPECIFIED
+                        - RECORD_TYPE_A
+                        - RECORD_TYPE_AAAA
+                        - RECORD_TYPE_CNAME
+                        - RECORD_TYPE_MX
+                        - RECORD_TYPE_NS
+                        - RECORD_TYPE_PTR
+                        - RECORD_TYPE_SRV
+                        - RECORD_TYPE_TXT
+                        - RECORD_TYPE_SOA
+                        - RECORD_TYPE_CAA
+                        - RECORD_TYPE_DS
+                        - RECORD_TYPE_DNSKEY
+                        - RECORD_TYPE_TLSA
+                        - RECORD_TYPE_SSHFP
+                        - RECORD_TYPE_SPF
+                        - RECORD_TYPE_NAPTR
+                    type: string
+                    format: enum
+                ttl:
+                    type: integer
+                    format: uint32
+                contents:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/RecordContent'
+                comment:
+                    type: string
+            description: 'An RRset: name + type + ttl + N content lines.'
+        RecordContent:
+            type: object
+            properties:
+                content:
+                    type: string
+                disabled:
+                    type: boolean
+            description: A single content line within an RRset.
+        RecursorConfig:
+            type: object
+            properties:
+                localAddress:
+                    type: array
+                    items:
+                        type: string
+                    description: Addresses the recursor listens on (local-address). e.g. ["0.0.0.0", "::"].
+                localPort:
+                    type: integer
+                    description: Listen port (local-port). 0 = default (53).
+                    format: uint32
+                allowFrom:
+                    type: array
+                    items:
+                        type: string
+                    description: Netmasks allowed to query the recursor (allow-from).
+                upstreamResolvers:
+                    type: array
+                    items:
+                        type: string
+                    description: |-
+                        Upstream resolvers for everything not locally forwarded
+                         (forward-zones-recurse=.=...). Empty = use root hints.
+                dnssecDisabled:
+                    type: boolean
+                    description: Disable DNSSEC validation (needed for internal/unsigned zones).
+            description: RecursorConfig holds the editable pdns-recursor settings.
+        Supermaster:
+            type: object
+            properties:
+                id:
+                    type: string
+                tenantId:
+                    type: integer
+                    format: uint32
+                ip:
+                    type: string
+                nameserver:
+                    type: string
+                account:
+                    type: string
+                createTime:
+                    type: string
+                    format: date-time
+        TemplateRecord:
+            type: object
+            properties:
+                name:
+                    type: string
+                type:
+                    type: string
+                ttl:
+                    type: integer
+                    format: uint32
+                content:
+                    type: string
+                priority:
+                    type: integer
+                    format: uint32
+            description: |-
+                A record stanza inside a template.
+                 "name" may contain [ZONE] which is replaced with the zone name at creation.
+        UpdateDnsConfigRequest:
+            type: object
+            properties:
+                recursor:
+                    $ref: '#/components/schemas/RecursorConfig'
+                authoritative:
+                    $ref: '#/components/schemas/AuthConfig'
+        UpdateDnsConfigResponse:
+            type: object
+            properties:
+                recursor:
+                    $ref: '#/components/schemas/RecursorConfig'
+                authoritative:
+                    $ref: '#/components/schemas/AuthConfig'
+                restarted:
+                    type: array
+                    items:
+                        type: string
+                    description: Services that were restarted to apply the change.
+        UpdateRecordRequest:
+            required:
+                - zoneId
+                - name
+                - type
+            type: object
+            properties:
+                zoneId:
+                    type: string
+                name:
+                    type: string
+                type:
+                    type: string
+                ttl:
+                    type: integer
+                    format: uint32
+                contents:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/RecordContent'
+                comment:
+                    type: string
+        UpdateRecordResponse:
+            type: object
+            properties:
+                record:
+                    $ref: '#/components/schemas/Record'
+        UpdateZoneRequest:
+            required:
+                - id
+            type: object
+            properties:
+                id:
+                    type: string
+                kind:
+                    enum:
+                        - ZONE_KIND_UNSPECIFIED
+                        - ZONE_KIND_NATIVE
+                        - ZONE_KIND_MASTER
+                        - ZONE_KIND_SLAVE
+                        - ZONE_KIND_PRODUCER
+                        - ZONE_KIND_CONSUMER
+                    type: string
+                    format: enum
+                masters:
+                    type: string
+                description:
+                    type: string
+                dnssecEnabled:
+                    type: boolean
+        UpdateZoneResponse:
+            type: object
+            properties:
+                zone:
+                    $ref: '#/components/schemas/Zone'
+        UpdateZoneTemplateRequest:
+            required:
+                - id
+            type: object
+            properties:
+                id:
+                    type: string
+                name:
+                    type: string
+                description:
+                    type: string
+                records:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/TemplateRecord'
+        UpdateZoneTemplateResponse:
+            type: object
+            properties:
+                template:
+                    $ref: '#/components/schemas/ZoneTemplate'
+        Zone:
+            type: object
+            properties:
+                id:
+                    type: string
+                    description: Local UUID assigned by this service.
+                tenantId:
+                    type: integer
+                    format: uint32
+                pdnsId:
+                    type: string
+                    description: PowerDNS zone id (e.g. "example.com.").
+                name:
+                    type: string
+                    description: Canonical zone name (e.g. "example.com.").
+                kind:
+                    enum:
+                        - ZONE_KIND_UNSPECIFIED
+                        - ZONE_KIND_NATIVE
+                        - ZONE_KIND_MASTER
+                        - ZONE_KIND_SLAVE
+                        - ZONE_KIND_PRODUCER
+                        - ZONE_KIND_CONSUMER
+                    type: string
+                    format: enum
+                masters:
+                    type: string
+                    description: For SLAVE zones — master IPs (comma separated).
+                serial:
+                    type: integer
+                    description: SOA serial. 0 if unknown.
+                    format: uint32
+                dnssecEnabled:
+                    type: boolean
+                description:
+                    type: string
+                    description: Local description / owner notes.
+                templateId:
+                    type: string
+                    description: Optional ID of the ZoneTemplate this zone was created from.
+                createTime:
+                    type: string
+                    format: date-time
+                updateTime:
+                    type: string
+                    format: date-time
+        ZoneTemplate:
+            type: object
+            properties:
+                id:
+                    type: string
+                tenantId:
+                    type: integer
+                    format: uint32
+                name:
+                    type: string
+                description:
+                    type: string
+                records:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/TemplateRecord'
+                createTime:
+                    type: string
+                    format: date-time
+                updateTime:
+                    type: string
+                    format: date-time
+tags:
+    - name: DnsConfigService
+      description: |-
+        DnsConfigService manages platform-level configuration for the PowerDNS
+         Recursor (the client-facing resolver) and the Authoritative server.
+         Updates are persisted, rendered into each service's include-dir config
+         file, and applied by restarting the affected container.
+    - name: DnsDashboardService
+      description: |-
+        DnsDashboardService — a thin proxy in front of Prometheus. The frontend
+         issues PromQL through these RPCs so the Prometheus API stays out of the
+         browser (no CORS, no auth bypass) and dashboard data flows through the
+         same admin gateway as the rest of the module. Both calls fan out to
+         /api/v1/query{,_range} on the configured Prometheus instance.
+    - name: DnsRecordService
+      description: |-
+        Record Service — manages DNS records within a zone.
+         Records are not stored locally; all operations proxy to PowerDNS.
+    - name: DnsSupermasterService
+      description: |-
+        Supermaster Service — for AXFR-based SLAVE zone replication.
+         Supermasters tell PowerDNS which IPs are allowed to send NOTIFY
+         and initiate automatic SLAVE zone provisioning.
+    - name: DnsZoneService
+      description: Zone Service — manages PowerDNS zones (forward + reverse).
+    - name: DnsZoneTemplateService
+      description: |-
+        Zone Template Service — Poweradmin-style reusable zone templates.
+         Each template defines a set of record templates with placeholders
+         like [ZONE] that get expanded when creating a zone.

@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package dns.service.v1;
+
+import "errors/errors.proto";
+
+enum DnsErrorReason {
+  option (errors.default_code) = 500;
+
+  DNS_ERROR_UNSPECIFIED = 0;
+
+  // 400 Bad Request
+  ZONE_NAME_INVALID = 1 [(errors.code) = 400];
+  RECORD_TYPE_UNSUPPORTED = 2 [(errors.code) = 400];
+  RECORD_CONTENT_INVALID = 3 [(errors.code) = 400];
+
+  // 404 Not Found
+  ZONE_NOT_FOUND = 10 [(errors.code) = 404];
+  RECORD_NOT_FOUND = 11 [(errors.code) = 404];
+  TEMPLATE_NOT_FOUND = 12 [(errors.code) = 404];
+  SUPERMASTER_NOT_FOUND = 13 [(errors.code) = 404];
+
+  // 409 Conflict
+  ZONE_ALREADY_EXISTS = 20 [(errors.code) = 409];
+  RECORD_ALREADY_EXISTS = 21 [(errors.code) = 409];
+  TEMPLATE_ALREADY_EXISTS = 22 [(errors.code) = 409];
+
+  // 502 Bad Gateway — PowerDNS backend error
+  PDNS_UNREACHABLE = 30 [(errors.code) = 502];
+  PDNS_API_ERROR = 31 [(errors.code) = 502];
+
+  // 403 Forbidden
+  PERMISSION_DENIED = 40 [(errors.code) = 403];
+}

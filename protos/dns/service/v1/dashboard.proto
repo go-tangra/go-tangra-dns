@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+package dns.service.v1;
+
+import "buf/validate/validate.proto";
+import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
+
+// DnsDashboardService — a thin proxy in front of Prometheus. The frontend
+// issues PromQL through these RPCs so the Prometheus API stays out of the
+// browser (no CORS, no auth bypass) and dashboard data flows through the
+// same admin gateway as the rest of the module. Both calls fan out to
+// /api/v1/query{,_range} on the configured Prometheus instance.
+service DnsDashboardService {
+  // Single point-in-time evaluation. Mirrors /api/v1/query.
+  rpc InstantQuery(InstantQueryRequest) returns (InstantQueryResponse) {
+    option (google.api.http) = {
+      get: "/v1/dashboard/query"
+    };
+  }
+
+  // Time-windowed evaluation. Mirrors /api/v1/query_range.
+  rpc RangeQuery(RangeQueryRequest) returns (RangeQueryResponse) {
+    option (google.api.http) = {
+      get: "/v1/dashboard/query_range"
+    };
+  }
+}
+
+message InstantQueryRequest {
+  string query = 1 [(buf.validate.field).string.min_len = 1];
+  // Optional evaluation timestamp. Default: server "now".
+  google.protobuf.Timestamp time = 2;
+}
+
+message InstantQueryResponse {
+  repeated InstantSample series = 1 [json_name = "series"];
+}
+
+message InstantSample {
+  map<string, string> labels = 1 [json_name = "labels"];
+  google.protobuf.Timestamp timestamp = 2 [json_name = "timestamp"];
+  double value = 3 [json_name = "value"];
+  bool has_value = 4 [json_name = "hasValue"];
+}
+
+message RangeQueryRequest {
+  string query = 1 [(buf.validate.field).string.min_len = 1];
+  google.protobuf.Timestamp start = 2 [(buf.validate.field).required = true];
+  google.protobuf.Timestamp end = 3 [(buf.validate.field).required = true];
+  int64 step_seconds = 4 [(buf.validate.field).int64.gt = 0, json_name = "stepSeconds"];
+}
+
+message RangeQueryResponse {
+  repeated RangeSeries series = 1 [json_name = "series"];
+}
+
+message RangeSeries {
+  map<string, string> labels = 1 [json_name = "labels"];
+  repeated google.protobuf.Timestamp timestamps = 2 [json_name = "timestamps"];
+  repeated double values = 3 [json_name = "values"];
+}
