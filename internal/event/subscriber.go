@@ -40,6 +40,8 @@ func channels() []string {
 	return []string{
 		IPAMTopicPrefix + "." + IPAMIPAddressCreated,
 		IPAMTopicPrefix + "." + IPAMIPAddressDeleted,
+		IPAMTopicPrefix + "." + IPAMIPAddressUpdated,
+		IPAMTopicPrefix + "." + IPAMIPAddressScanned,
 	}
 }
 
@@ -129,6 +131,22 @@ func (s *Subscriber) handleMessage(msg *redis.Message) {
 		}
 		if err := s.handler.HandleIPAddressDeleted(s.ctx, d); err != nil {
 			s.log.Errorf("failed to handle ip_address.deleted: %v", err)
+		}
+	case IPAMIPAddressScanned:
+		d, ok := s.decode(env)
+		if !ok {
+			return
+		}
+		if err := s.handler.HandleIPAddressScanned(s.ctx, d); err != nil {
+			s.log.Errorf("failed to handle ip_address.scanned: %v", err)
+		}
+	case IPAMIPAddressUpdated:
+		d, ok := s.decode(env)
+		if !ok {
+			return
+		}
+		if err := s.handler.HandleIPAddressUpdated(s.ctx, d); err != nil {
+			s.log.Errorf("failed to handle ip_address.updated: %v", err)
 		}
 	default:
 		// Not a topic we handle.

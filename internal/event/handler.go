@@ -118,6 +118,64 @@ func (h *Handler) HandleIPAddressDeleted(ctx context.Context, d *IPAddressData) 
 	return nil
 }
 
+// HandleIPAddressScanned mirrors HandleIPAddressCreated: a host discovered by
+// a network scan (with DNS sync enabled) gets its forward A + reverse PTR
+// records ensured. Kept as a distinct topic so scan-driven syncs are
+// distinguishable in logs from explicit IP creation.
+func (h *Handler) HandleIPAddressScanned(ctx context.Context, d *IPAddressData) error {
+	return h.HandleIPAddressCreated(ctx, d)
+}
+
+// HandleIPAddressUpdated reacts to a hostname edit. It removes the stale
+// forward A record for the previous hostname, then upserts the forward A +
+// reverse PTR for the new hostname. When the hostname was cleared (no new
+// name), the now-orphaned reverse PTR is removed as well.
+func (h *Handler) HandleIPAddressUpdated(ctx context.Context, d *IPAddressData) error {
+	oldHost := canonHost(d.OldHostname)
+	newHost := canonHost(d.Hostname)
+
+	// Nothing to move if the hostname did not actually change.
+	if oldHost == newHost {
+		return nil
+	}
+
+	// Remove the previous hostname's forward A record (best-effort).
+	if oldHost != "" {
+		if zone, err := h.findZone(ctx, d.TenantID, oldHost); err != nil {
+			h.log.Warnf("lookup zone for old host %s: %v", oldHost, err)
+		} else if zone != nil {
+			rr := pdns.RRset{Name: oldHost + ".", Type: "A", ChangeType: "DELETE"}
+			if err := h.pdnsCli.PatchRRsets(ctx, zone.PdnsID, []pdns.RRset{rr}); err != nil {
+				h.log.Warnf("delete stale A %s in zone %s: %v", oldHost, zone.Name, err)
+			} else {
+				h.log.Infof("removed stale A record %s from zone %s (tenant %d)", oldHost, zone.Name, d.TenantID)
+			}
+		}
+	}
+
+	// Hostname cleared: drop the orphaned PTR for the address (the forward A
+	// upsert below would otherwise be skipped, leaving a dangling PTR).
+	if newHost == "" {
+		if parsed := net.ParseIP(d.Address); parsed != nil && parsed.To4() != nil {
+			ipv4 := parsed.To4().String()
+			revZone := reverseZoneName(ipv4)
+			if zone, err := h.findZone(ctx, d.TenantID, strings.TrimSuffix(revZone, ".")); err == nil && zone != nil {
+				rr := pdns.RRset{Name: reverseName(ipv4), Type: "PTR", ChangeType: "DELETE"}
+				if err := h.pdnsCli.PatchRRsets(ctx, zone.PdnsID, []pdns.RRset{rr}); err != nil {
+					h.log.Warnf("delete orphaned PTR %s: %v", reverseName(ipv4), err)
+				} else {
+					h.log.Infof("removed orphaned PTR record %s (tenant %d)", reverseName(ipv4), d.TenantID)
+				}
+			}
+		}
+		return nil
+	}
+
+	// Upsert the new hostname's forward A + reverse PTR (the PTR REPLACE also
+	// repoints any previous PTR for this address at the new name).
+	return h.HandleIPAddressCreated(ctx, d)
+}
+
 // upsertPTR ensures the reverse /24 zone exists and upserts a PTR record.
 func (h *Handler) upsertPTR(ctx context.Context, tenantID uint32, ipv4, host string) {
 	revZone := reverseZoneName(ipv4)
