@@ -170,3 +170,18 @@ func canonicalName(s string) string {
 	}
 	return s
 }
+
+// canonicalizeAll canonicalizes each entry (trailing dot), dropping empties.
+// PowerDNS rejects non-canonical nameserver names with a 422.
+func canonicalizeAll(in []string) []string {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(in))
+	for _, s := range in {
+		if c := canonicalName(s); c != "" {
+			out = append(out, c)
+		}
+	}
+	return out
+}

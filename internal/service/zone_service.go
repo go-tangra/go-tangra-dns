@@ -55,7 +55,8 @@ func (s *ZoneService) CreateZone(ctx context.Context, req *dnsV1.CreateZoneReque
 	pdnsZone := &pdns.Zone{
 		Name:        name,
 		Kind:        pdnsKind,
-		Nameservers: req.GetNameservers(),
+		// PowerDNS requires canonical (trailing-dot) nameserver names.
+		Nameservers: canonicalizeAll(req.GetNameservers()),
 		DNSSEC:      req.GetDnssecEnabled(),
 	}
 	if req.GetMasters() != "" {
