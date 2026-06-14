@@ -10,6 +10,8 @@ import (
 	"github.com/go-kratos/kratos/v2/transport/grpc"
 	"github.com/tx7do/kratos-bootstrap/bootstrap"
 
+	commonV1 "github.com/go-tangra/go-tangra-common/gen/go/common/service/v1"
+
 	"github.com/go-tangra/go-tangra-common/middleware/audit"
 	"github.com/go-tangra/go-tangra-common/middleware/mtls"
 	"github.com/go-tangra/go-tangra-common/viewer"
@@ -43,6 +45,7 @@ func NewGRPCServer(
 	supermasterSvc *service.SupermasterService,
 	configSvc *service.ConfigService,
 	dashboardSvc *service.DashboardService,
+	sqlBackupSvc *service.SqlBackupService,
 ) *grpc.Server {
 	cfg := ctx.GetConfig()
 	l := ctx.NewLoggerHelper("dns/grpc")
@@ -118,6 +121,8 @@ func NewGRPCServer(
 	dnsV1.RegisterRedactedDnsSupermasterServiceServer(srv, supermasterSvc, nil)
 	dnsV1.RegisterRedactedDnsConfigServiceServer(srv, configSvc, nil)
 	dnsV1.RegisterRedactedDnsDashboardServiceServer(srv, dashboardSvc, nil)
+
+	commonV1.RegisterBackupServiceServer(srv, sqlBackupSvc)
 
 	return srv
 }

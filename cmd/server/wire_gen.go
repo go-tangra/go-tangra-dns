@@ -44,7 +44,8 @@ func initApp(context *bootstrap.Context) (*kratos.App, func(), error) {
 	configService := service.NewConfigService(context, dnsConfigRepo, reconciler)
 	prometheusClient := data.NewPrometheusClient()
 	dashboardService := service.NewDashboardService(context, prometheusClient)
-	grpcServer := server.NewGRPCServer(context, certManager, collector, zoneService, recordService, zoneTemplateService, supermasterService, configService, dashboardService)
+	sqlBackupService := service.NewSqlBackupService(context)
+	grpcServer := server.NewGRPCServer(context, certManager, collector, zoneService, recordService, zoneTemplateService, supermasterService, configService, dashboardService, sqlBackupService)
 	httpServer := server.NewHTTPServer(context)
 	redisClient, cleanup2, err := data.NewRedisClient(context)
 	if err != nil {
