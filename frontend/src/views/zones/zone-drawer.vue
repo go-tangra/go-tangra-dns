@@ -21,6 +21,7 @@ import {
 } from 'ant-design-vue';
 
 import { type Zone, type ZoneKind, type ZoneTemplate } from '../../api/services';
+import { formatDateTime as formatDateTimeShared } from '../../utils/format';
 import { $t } from 'shell/locales';
 import { useDnsZoneStore } from '../../stores/dns-zone.state';
 import { useDnsTemplateStore } from '../../stores/dns-template.state';
@@ -106,7 +107,7 @@ function kindToName(kind: string | undefined) {
 function formatDateTime(value: string | undefined) {
   if (!value) return '-';
   try {
-    return new Date(value).toLocaleString();
+    return formatDateTimeShared(value);
   } catch {
     return value;
   }

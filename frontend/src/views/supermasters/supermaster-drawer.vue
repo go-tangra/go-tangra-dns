@@ -15,6 +15,7 @@ import {
 } from 'ant-design-vue';
 
 import { type Supermaster } from '../../api/services';
+import { formatDateTime as formatDateTimeShared } from '../../utils/format';
 import { $t } from 'shell/locales';
 import { useDnsSupermasterStore } from '../../stores/dns-supermaster.state';
 
@@ -51,7 +52,7 @@ const isViewMode = computed(() => data.value?.mode === 'view');
 function formatDateTime(value: string | undefined) {
   if (!value) return '-';
   try {
-    return new Date(value).toLocaleString();
+    return formatDateTimeShared(value);
   } catch {
     return value;
   }
