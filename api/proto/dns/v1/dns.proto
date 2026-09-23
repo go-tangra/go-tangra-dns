@@ -1,0 +1,82 @@
+syntax = "proto3";
+
+// dns.v1 is the module-to-module API of the DNS module (contracts §B). It is
+// NOT proxied by the gateway: callers are authenticated platform services on
+// the Freya SPIFFE mTLS channel, checked against the policy allow-list.
+//
+//   - Challenges publishes and removes ACME DNS-01 `_acme-challenge` TXT values
+//     for the certificate service (lcm) ONLY: the policy allows just the lcm
+//     identity AND the handler re-checks the peer SPIFFE ID.
+//   - Zones is a read-only view of the managed zones of the tenant named in
+//     each request, for any platform module.
+//
+// No message ever carries PowerDNS/recursor API keys, record values beyond the
+// challenge token, or configuration file contents.
+package dns.v1;
+
+option go_package = "github.com/go-freya/freya/services/dns/api/proto/dns/v1;dnsv1";
+
+// Challenges is the lcm-only ACME DNS-01 surface.
+service Challenges {
+  // Present adds value to the TXT rrset at fqdn (idempotent).
+  rpc Present(ChallengeRequest) returns (ChallengeResponse);
+  // CleanUp removes value from the TXT rrset at fqdn (absent value = OK).
+  rpc CleanUp(ChallengeRequest) returns (ChallengeResponse);
+}
+
+message ChallengeRequest {
+  string tenant_id = 1;
+  string domain = 2; // the certificate identifier (may start with "*.")
+  string fqdn = 3;   // must equal "_acme-challenge." + domain without "*."
+  string value = 4;  // 43-char base64url key authorization digest
+}
+
+message ChallengeResponse {
+  string zone = 1; // the zone the value was written to / cleaned from
+}
+
+// Zones is the read-only module view of a tenant's managed zones.
+service Zones {
+  rpc List(ListZonesRequest) returns (ListZonesResponse);
+  rpc Get(GetZoneRequest) returns (Zone);
+  // FindForName returns the tenant's longest managed zone containing name.
+  rpc FindForName(FindForNameRequest) returns (Zone);
+}
+
+// Timestamp is seconds since the epoch; 0 = unset.
+message Timestamp { int64 unix = 1; }
+
+message Zone {
+  string id = 1;
+  string name = 2;       // canonical, trailing dot
+  string kind = 3;       // native | master | slave | producer | consumer
+  bool dnssec = 4;
+  string origin = 5;     // manual | ipam
+  string description = 6;
+  repeated string masters = 7;
+  Timestamp created_at = 8;
+  Timestamp updated_at = 9;
+}
+
+message ListZonesRequest {
+  string tenant_id = 1;
+  string query = 2;   // name substring
+  int32 page = 3;     // 1-based
+  int32 page_size = 4; // <= 100
+}
+
+message ListZonesResponse {
+  repeated Zone items = 1;
+  int64 total = 2;
+}
+
+message GetZoneRequest {
+  string tenant_id = 1;
+  string id = 2;   // either id ...
+  string name = 3; // ... or the zone name
+}
+
+message FindForNameRequest {
+  string tenant_id = 1;
+  string name = 2; // a FQDN
+}

@@ -1,0 +1,17 @@
+# Managed by Freya DNS — do not edit by hand.
+incoming:
+  listen:
+    - "192.0.2.53"
+    - "2001:db8::53"
+  port: 5300
+  allow_from:
+    - "10.0.0.0/8"
+    - "2001:db8::/32"
+dnssec:
+  validation: "validate"
+recursor:
+  forward_zones_recurse:
+    - zone: "."
+      forwarders:
+        - "9.9.9.9"
+        - "[2620:fe::fe]:53"

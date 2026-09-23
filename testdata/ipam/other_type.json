@@ -1,0 +1,1 @@
+{"type":"ipam.scan.completed","to":"*","at":"1790000000000","data":"{\"job_id\":\"j1\",\"subnet_id\":\"s1\",\"alive_count\":3,\"new_count\":1}"}

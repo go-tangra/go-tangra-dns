@@ -1,0 +1,1 @@
+{"type":"ipam.ip_address.scanned","to":"*","at":"1790000000000","data":"{\"action\":\"scanned\",\"id\":\"0190f7c2-0000-7000-8000-00000000a001\",\"address\":\"192.0.2.10\",\"subnet_id\":\"0190f7c2-0000-7000-8000-00000000b001\",\"hostname\":\"web.example.com\",\"device_id\":\"\"}"}

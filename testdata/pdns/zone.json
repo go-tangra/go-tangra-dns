@@ -1,0 +1,56 @@
+{
+  "id": "example.com.",
+  "name": "example.com.",
+  "type": "Zone",
+  "url": "/api/v1/servers/localhost/zones/example.com.",
+  "kind": "Native",
+  "serial": 2026092301,
+  "notified_serial": 0,
+  "edited_serial": 2026092301,
+  "masters": [],
+  "dnssec": false,
+  "nsec3param": "",
+  "nsec3narrow": false,
+  "presigned": false,
+  "soa_edit": "",
+  "soa_edit_api": "DEFAULT",
+  "api_rectify": false,
+  "account": "0190f7c2-6a3e-7c1a-9b2e-2f6f9d1b4c55",
+  "rrsets": [
+    {
+      "name": "example.com.",
+      "type": "SOA",
+      "ttl": 3600,
+      "records": [{"content": "ns1.example.com. hostmaster.example.com. 2026092301 10800 3600 604800 3600", "disabled": false}],
+      "comments": []
+    },
+    {
+      "name": "example.com.",
+      "type": "NS",
+      "ttl": 3600,
+      "records": [{"content": "ns1.example.com.", "disabled": false}, {"content": "ns2.example.com.", "disabled": false}],
+      "comments": []
+    },
+    {
+      "name": "www.example.com.",
+      "type": "A",
+      "ttl": 300,
+      "records": [{"content": "192.0.2.10", "disabled": false}, {"content": "192.0.2.11", "disabled": true}],
+      "comments": [{"content": "web tier", "account": "u1", "modified_at": 1790000000}]
+    },
+    {
+      "name": "example.com.",
+      "type": "MX",
+      "ttl": 3600,
+      "records": [{"content": "10 mail.example.com.", "disabled": false}],
+      "comments": []
+    },
+    {
+      "name": "_acme-challenge.example.com.",
+      "type": "TXT",
+      "ttl": 60,
+      "records": [{"content": "\"yQ8mZt3aTf2Qm1pL0cS9vN7xR4eW6hK5jD3gB2nA1c0\"", "disabled": false}],
+      "comments": []
+    }
+  ]
+}
