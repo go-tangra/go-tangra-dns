@@ -2,135 +2,213 @@ package recursor
 
 import (
 	"context"
-	"os"
-	"strconv"
-	"sync"
+	"errors"
+	"fmt"
+	"log/slog"
+	"strings"
 	"time"
-
-	"github.com/go-kratos/kratos/v2/log"
-	"github.com/tx7do/kratos-bootstrap/bootstrap"
-
-	appViewer "github.com/go-tangra/go-tangra-common/viewer"
-	"github.com/go-tangra/go-tangra-dns/internal/data"
 )
 
-const defaultReconcileInterval = 5 * time.Minute
-
-// Reconciler periodically (and at startup) re-pushes every managed zone's
-// forward entry to the recursor. This populates the recursor on first boot,
-// recovers from drift, and re-points entries after the authoritative
-// server's IP changes.
+// Reconciler keeps the recursor's forward zones equal to the managed zones
+// (research D10, FR-008): every managed zone is (re)pointed at the
+// authoritative server and forwards for zones no longer managed are removed —
+// except the root and the configured static forwards. It runs at start-up and
+// on an interval, and on demand after a configuration restart (ReconcileNow,
+// which first polls the recursor for readiness, bounded). A disabled client
+// makes every pass a no-op. Failures are logged and retried on the next pass;
+// they never block zone management.
 type Reconciler struct {
-	log      *log.Helper
-	client   *Client
-	zoneRepo *data.ZoneRepo
-	interval time.Duration
-
-	ctx     context.Context
-	cancel  context.CancelFunc
-	wg      sync.WaitGroup
-	running bool
-	mu      sync.Mutex
+	Client Client
+	// Names lists every managed zone name (repo AllZoneNames, system scope).
+	Names func(ctx context.Context) ([]string, error)
+	// Static forwards are never removed (config recursor.static_forwards).
+	Static []string
+	// Interval between passes (default 5 minutes).
+	Interval time.Duration
+	// After is the clock (default time.After; injected in tests).
+	After func(time.Duration) <-chan time.Time
+	// ReadyAttempts/ReadyDelay bound ReconcileNow's readiness polling
+	// (defaults 30 × 1 s).
+	ReadyAttempts int
+	ReadyDelay    time.Duration
+	Log           *slog.Logger
+	// OnResult receives the metrics result of every sync/removal.
+	OnResult func(result string)
+	// PDNSNames lists the zones PowerDNS serves; with OnUnowned set, every
+	// pass reports how many have no local owner (created outside the
+	// platform or auto-provisioned by a supermaster). They are never adopted.
+	// This check runs even when the resolver is disabled.
+	PDNSNames func(ctx context.Context) ([]string, error)
+	OnUnowned func(n int64)
 }
 
-// NewReconciler builds the reconciler.
-func NewReconciler(ctx *bootstrap.Context, client *Client, zoneRepo *data.ZoneRepo) *Reconciler {
-	interval := defaultReconcileInterval
-	if v := os.Getenv("RECURSOR_RECONCILE_INTERVAL_SECONDS"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
-			interval = time.Duration(n) * time.Second
-		}
+func (r *Reconciler) interval() time.Duration {
+	if r.Interval > 0 {
+		return r.Interval
 	}
-	return &Reconciler{
-		log:      ctx.NewLoggerHelper("dns/recursor/reconciler"),
-		client:   client,
-		zoneRepo: zoneRepo,
-		interval: interval,
+	return 5 * time.Minute
+}
+
+func (r *Reconciler) after(d time.Duration) <-chan time.Time {
+	if r.After != nil {
+		return r.After(d)
+	}
+	return time.After(d)
+}
+
+func (r *Reconciler) readyAttempts() int {
+	if r.ReadyAttempts > 0 {
+		return r.ReadyAttempts
+	}
+	return 30
+}
+
+func (r *Reconciler) readyDelay() time.Duration {
+	if r.ReadyDelay > 0 {
+		return r.ReadyDelay
+	}
+	return time.Second
+}
+
+func (r *Reconciler) log() *slog.Logger {
+	if r.Log != nil {
+		return r.Log
+	}
+	return slog.New(slog.DiscardHandler)
+}
+
+func (r *Reconciler) result(err error) {
+	if r.OnResult == nil {
+		return
+	}
+	switch {
+	case err == nil:
+		r.OnResult("ok")
+	case errors.Is(err, ErrUnavailable):
+		r.OnResult("unavailable")
+	default:
+		r.OnResult("error")
 	}
 }
 
-// Start runs an initial reconcile and then a periodic one. No-op when the
-// recursor integration is disabled.
-func (r *Reconciler) Start() error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if r.running {
-		return nil
+func (r *Reconciler) enabled() bool { return r != nil && r.Client != nil && r.Client.Enabled() }
+
+func (r *Reconciler) counting() bool { return r != nil && r.PDNSNames != nil && r.OnUnowned != nil }
+
+// Run reconciles immediately and then every Interval until ctx is done.
+func (r *Reconciler) Run(ctx context.Context) {
+	if !r.enabled() && !r.counting() {
+		return
 	}
-	if !r.client.Enabled() {
-		r.log.Info("recursor integration disabled, reconciler not started")
-		return nil
-	}
-
-	base := appViewer.NewSystemViewerContext(context.Background())
-	r.ctx, r.cancel = context.WithCancel(base)
-	r.running = true
-
-	r.wg.Add(1)
-	go r.loop()
-	return nil
-}
-
-// Stop halts the reconciler.
-func (r *Reconciler) Stop() error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if !r.running {
-		return nil
-	}
-	r.cancel()
-	r.wg.Wait()
-	r.running = false
-	return nil
-}
-
-func (r *Reconciler) loop() {
-	defer r.wg.Done()
-	// Initial reconcile shortly after boot (give the recursor a moment).
-	timer := time.NewTimer(3 * time.Second)
-	defer timer.Stop()
-	ticker := time.NewTicker(r.interval)
-	defer ticker.Stop()
-
 	for {
+		if err := r.Reconcile(ctx); err != nil {
+			r.log().WarnContext(ctx, "recursor reconcile", "err", err)
+		}
 		select {
-		case <-r.ctx.Done():
+		case <-ctx.Done():
 			return
-		case <-timer.C:
-			r.reconcileOnce(r.ctx)
-		case <-ticker.C:
-			r.reconcileOnce(r.ctx)
+		case <-r.after(r.interval()):
 		}
 	}
 }
 
-// ReconcileNow runs a one-off reconcile with a fresh context. Used to
-// re-point forward zones immediately after the authoritative container
-// restarts (and may have changed IP).
-func (r *Reconciler) ReconcileNow() {
-	if !r.client.Enabled() {
-		return
+func canonicalForward(z string) string {
+	z = strings.ToLower(strings.TrimSpace(z))
+	if !strings.HasSuffix(z, ".") {
+		z += "."
 	}
-	ctx := appViewer.NewSystemViewerContext(context.Background())
-	r.reconcileOnce(ctx)
+	return z
 }
 
-func (r *Reconciler) reconcileOnce(ctx context.Context) {
-	names, err := r.zoneRepo.AllZoneNames(ctx)
+// Reconcile runs one pass; it returns the first error after trying every
+// zone (the pass never stops half-way on one failure).
+func (r *Reconciler) Reconcile(ctx context.Context) error {
+	if !r.enabled() && !r.counting() {
+		return nil
+	}
+	managed, err := r.Names(ctx)
 	if err != nil {
-		r.log.Warnf("reconcile: list zones: %v", err)
-		return
+		return fmt.Errorf("recursor reconcile: zone names: %w", err)
 	}
-	var synced, failed int
-	for _, name := range names {
-		if err := r.client.SyncForwardZone(ctx, name); err != nil {
-			r.log.Warnf("reconcile: sync %s: %v", name, err)
-			failed++
-			continue
+	var unownedErr error
+	if r.counting() {
+		unownedErr = r.countUnowned(ctx, managed)
+	}
+	if !r.enabled() {
+		return unownedErr
+	}
+	keep := map[string]bool{".": true}
+	for _, s := range r.Static {
+		keep[canonicalForward(s)] = true
+	}
+	var first error
+	note := func(err error) {
+		r.result(err)
+		if err != nil && first == nil {
+			first = err
 		}
-		synced++
 	}
-	if synced > 0 || failed > 0 {
-		r.log.Infof("recursor reconcile complete: %d synced, %d failed", synced, failed)
+	for _, z := range managed {
+		keep[canonicalForward(z)] = true
+		note(r.Client.SyncForward(ctx, z))
 	}
+	current, err := r.Client.ListForwards(ctx)
+	if err != nil {
+		return fmt.Errorf("recursor reconcile: list forwards: %w", err)
+	}
+	for _, z := range current {
+		if !keep[canonicalForward(z)] {
+			note(r.Client.RemoveForward(ctx, z))
+		}
+	}
+	if first == nil {
+		first = unownedErr
+	}
+	return first
+}
+
+// countUnowned reports the PowerDNS zones no tenant owns.
+func (r *Reconciler) countUnowned(ctx context.Context, managed []string) error {
+	served, err := r.PDNSNames(ctx)
+	if err != nil {
+		return fmt.Errorf("recursor reconcile: PowerDNS zones: %w", err)
+	}
+	owned := make(map[string]bool, len(managed))
+	for _, z := range managed {
+		owned[canonicalForward(z)] = true
+	}
+	var n int64
+	for _, z := range served {
+		if !owned[canonicalForward(z)] {
+			n++
+		}
+	}
+	if n > 0 {
+		r.log().WarnContext(ctx, "PowerDNS serves zones with no local owner (not adopted)", "count", n)
+	}
+	r.OnUnowned(n)
+	return nil
+}
+
+// ReconcileNow waits (bounded) until the recursor answers — e.g. after its
+// container was restarted by a configuration change — and runs one pass.
+func (r *Reconciler) ReconcileNow(ctx context.Context) error {
+	if !r.enabled() {
+		return nil
+	}
+	var err error
+	for i := 0; i < r.readyAttempts(); i++ {
+		if err = r.Client.Ready(ctx); err == nil {
+			return r.Reconcile(ctx)
+		}
+		if i == r.readyAttempts()-1 {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-r.after(r.readyDelay()):
+		}
+	}
+	return err
 }

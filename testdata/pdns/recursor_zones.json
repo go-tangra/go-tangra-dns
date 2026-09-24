@@ -1,0 +1,5 @@
+[
+  {"id": "example.com.", "name": "example.com.", "kind": "Forwarded", "servers": ["172.20.0.5:53"], "recursion_desired": false, "url": "/api/v1/servers/localhost/zones/example.com."},
+  {"id": "stale.example.", "name": "stale.example.", "kind": "Forwarded", "servers": ["172.20.0.5:53"], "recursion_desired": false, "url": "/api/v1/servers/localhost/zones/stale.example."},
+  {"id": ".", "name": ".", "kind": "Native", "servers": [], "recursion_desired": false, "url": "/api/v1/servers/localhost/zones/."}
+]

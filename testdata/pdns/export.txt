@@ -1,0 +1,6 @@
+example.com.	3600	IN	SOA	ns1.example.com. hostmaster.example.com. 2026092301 10800 3600 604800 3600
+example.com.	3600	IN	NS	ns1.example.com.
+example.com.	3600	IN	NS	ns2.example.com.
+example.com.	3600	IN	MX	10 mail.example.com.
+www.example.com.	300	IN	A	192.0.2.10
+_acme-challenge.example.com.	60	IN	TXT	"yQ8mZt3aTf2Qm1pL0cS9vN7xR4eW6hK5jD3gB2nA1c0"

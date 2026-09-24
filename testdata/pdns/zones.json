@@ -1,0 +1,5 @@
+[
+  {"id": "example.com.", "name": "example.com.", "type": "Zone", "url": "/api/v1/servers/localhost/zones/example.com.", "kind": "Native", "serial": 2026092301, "notified_serial": 0, "masters": [], "dnssec": false, "account": ""},
+  {"id": "2.0.192.in-addr.arpa.", "name": "2.0.192.in-addr.arpa.", "type": "Zone", "url": "/api/v1/servers/localhost/zones/2.0.192.in-addr.arpa.", "kind": "Master", "serial": 1, "notified_serial": 1, "masters": [], "dnssec": false, "account": ""},
+  {"id": "auto.example.net.", "name": "auto.example.net.", "type": "Zone", "url": "/api/v1/servers/localhost/zones/auto.example.net.", "kind": "Slave", "serial": 7, "notified_serial": 0, "masters": ["192.0.2.53"], "dnssec": false, "account": "supermaster"}
+]

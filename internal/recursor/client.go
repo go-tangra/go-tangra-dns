@@ -1,84 +1,238 @@
-// Package recursor keeps the PowerDNS Recursor's forward-zone list in sync
-// with the platform-managed zones. When a zone is created/deleted in the
-// authoritative server, the recursor must forward (or stop forwarding)
-// queries for that zone to the auth server. The recursor REST API requires
-// IP forward targets, so we resolve the auth host at sync time.
+// Package recursor keeps the PowerDNS Recursor forwarding every managed zone to
+// the authoritative server (research D10; ported from go-tangra-dns
+// internal/recursor onto typed config and secret references). The recursor's
+// forward-zone API rejects host names, so the authoritative host is resolved
+// to an IP at sync time. An unconfigured client (no API URL) is disabled and
+// every method is a no-op: the recursor being absent or down never blocks zone
+// management. The API key is read per call and never appears in an error.
 package recursor
 
 import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
-	"os"
+	"net/netip"
+	"net/url"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
-
-	"github.com/go-kratos/kratos/v2/log"
-	"github.com/tx7do/kratos-bootstrap/bootstrap"
 )
 
-// Client talks to the pdns-recursor REST API.
-type Client struct {
-	log         *log.Helper
-	apiURL      string
-	apiKey      string
-	forwardHost string
-	forwardPort string
-	http        *http.Client
+// ErrUnavailable marks transport failures, missing keys, unresolvable forward
+// targets and 5xx replies.
+var ErrUnavailable = errors.New("recursor: unavailable")
+
+// Defaults.
+const (
+	DefaultTimeout = 10 * time.Second
+	maxBody        = 4 << 20
+	maxMessage     = 200
+)
+
+// Client is the recursor surface the module uses (contracts §D).
+type Client interface {
+	// Enabled reports whether resolver forwarding is configured.
+	Enabled() bool
+	// SyncForward (idempotently) points the forward entry for zone at the
+	// authoritative server's current IP:port.
+	SyncForward(ctx context.Context, zone string) error
+	// RemoveForward removes the forward entry (absent = success).
+	RemoveForward(ctx context.Context, zone string) error
+	// ListForwards lists the names of the recursor's Forwarded zones.
+	ListForwards(ctx context.Context) ([]string, error)
+	// Ready checks the recursor API answers (post-restart readiness).
+	Ready(ctx context.Context) error
 }
 
-// NewClient builds a recursor client from the environment. When
-// RECURSOR_API_URL / RECURSOR_API_KEY are unset, every method is a no-op.
-func NewClient(ctx *bootstrap.Context) *Client {
-	return &Client{
-		log:         ctx.NewLoggerHelper("dns/recursor"),
-		apiURL:      strings.TrimRight(os.Getenv("RECURSOR_API_URL"), "/"),
-		apiKey:      os.Getenv("RECURSOR_API_KEY"),
-		forwardHost: getEnv("PDNS_FORWARD_HOST", "powerdns"),
-		forwardPort: getEnv("PDNS_FORWARD_PORT", "53"),
-		http:        &http.Client{Timeout: 10 * time.Second},
+// KeyFunc yields the API key for one call (secrets.Source.RecursorAPIKey).
+type KeyFunc func(ctx context.Context) (string, error)
+
+// Resolver resolves the authoritative host (net.DefaultResolver in production).
+type Resolver interface {
+	LookupIPAddr(ctx context.Context, host string) ([]net.IPAddr, error)
+}
+
+// Config configures the HTTP client. An empty BaseURL disables it.
+type Config struct {
+	BaseURL     string
+	ServerID    string // default "localhost"
+	Key         KeyFunc
+	ForwardHost string // authoritative DNS host (default "pdns-auth")
+	ForwardPort int    // default 53
+	Timeout     time.Duration
+	Resolver    Resolver
+	HTTP        *http.Client
+}
+
+// HTTPClient talks to the PowerDNS Recursor API.
+type HTTPClient struct {
+	enabled  bool
+	base     string
+	serverID string
+	key      KeyFunc
+	fwdHost  string
+	fwdPort  int
+	timeout  time.Duration
+	resolver Resolver
+	hc       *http.Client
+}
+
+var (
+	_          Client = (*HTTPClient)(nil)
+	serverIDRE        = regexp.MustCompile(`^[a-zA-Z0-9._-]{1,64}$`)
+	hostRE            = regexp.MustCompile(`^[a-zA-Z0-9]([a-zA-Z0-9.:-]{0,251}[a-zA-Z0-9])?$`)
+)
+
+// New validates the configuration and builds the client (disabled when
+// BaseURL is empty).
+func New(cfg Config) (*HTTPClient, error) {
+	if strings.TrimSpace(cfg.BaseURL) == "" {
+		return &HTTPClient{}, nil
 	}
+	u, err := url.Parse(strings.TrimSpace(cfg.BaseURL))
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil {
+		return nil, errors.New("recursor: base URL must be an http(s) URL without credentials")
+	}
+	if cfg.Key == nil {
+		return nil, errors.New("recursor: an API key source is required")
+	}
+	c := &HTTPClient{enabled: true, base: strings.TrimRight(u.String(), "/"), serverID: cfg.ServerID, key: cfg.Key,
+		fwdHost: cfg.ForwardHost, fwdPort: cfg.ForwardPort, timeout: cfg.Timeout, resolver: cfg.Resolver, hc: cfg.HTTP}
+	if c.serverID == "" {
+		c.serverID = "localhost"
+	}
+	if c.fwdHost == "" {
+		c.fwdHost = "pdns-auth"
+	}
+	if c.fwdPort == 0 {
+		c.fwdPort = 53
+	}
+	if !serverIDRE.MatchString(c.serverID) || !hostRE.MatchString(c.fwdHost) || c.fwdPort < 1 || c.fwdPort > 65535 {
+		return nil, errors.New("recursor: invalid server id or forward target")
+	}
+	if c.timeout <= 0 {
+		c.timeout = DefaultTimeout
+	}
+	if c.resolver == nil {
+		c.resolver = net.DefaultResolver
+	}
+	if c.hc == nil {
+		c.hc = &http.Client{}
+	}
+	return c, nil
 }
 
-// Enabled reports whether the recursor integration is configured.
-func (c *Client) Enabled() bool { return c.apiURL != "" && c.apiKey != "" }
+// Enabled implements Client.
+func (c *HTTPClient) Enabled() bool { return c.enabled }
 
-// canon lowercases and ensures a single trailing dot.
-func canon(zone string) string {
+// StatusError is a non-2xx recursor reply (sanitised, key-free message).
+type StatusError struct {
+	Status  int
+	Message string
+}
+
+func (e *StatusError) Error() string {
+	return fmt.Sprintf("recursor: status %d: %s", e.Status, e.Message)
+}
+
+// Unwrap maps 5xx to ErrUnavailable.
+func (e *StatusError) Unwrap() error {
+	if e.Status >= 500 {
+		return ErrUnavailable
+	}
+	return nil
+}
+
+func sanitize(msg, key string) string {
+	if key != "" {
+		msg = strings.ReplaceAll(msg, key, "[redacted]")
+	}
+	msg = strings.Join(strings.Fields(strings.Map(func(r rune) rune {
+		if r < 0x20 || r == 0x7f {
+			return ' '
+		}
+		return r
+	}, msg)), " ")
+	if len(msg) > maxMessage {
+		msg = msg[:maxMessage]
+	}
+	return msg
+}
+
+// canon lower-cases the zone and ensures one trailing dot; the root and empty
+// names are refused (never managed through this client).
+func canon(zone string) (string, error) {
 	z := strings.ToLower(strings.TrimSpace(zone))
+	z = strings.TrimSuffix(z, ".")
 	if z == "" {
-		return z
+		return "", errors.New("recursor: zone name required")
 	}
-	if !strings.HasSuffix(z, ".") {
-		z += "."
-	}
-	return z
+	return z + ".", nil
 }
 
-// resolveTarget resolves the authoritative host to an "ip:port" string.
-// The recursor forward-zones API rejects hostnames, so we must pass an IP.
-func (c *Client) resolveTarget(ctx context.Context) (string, error) {
-	// If the configured host is already an IP, use it directly.
-	if net.ParseIP(c.forwardHost) != nil {
-		return net.JoinHostPort(c.forwardHost, c.forwardPort), nil
+func (c *HTTPClient) zonesPath() string {
+	return "/api/v1/servers/" + url.PathEscape(c.serverID) + "/zones"
+}
+
+// do performs one call and returns the status and body (any status).
+func (c *HTTPClient) do(ctx context.Context, method, path string, in any) (int, []byte, error) {
+	key, err := c.key(ctx)
+	if err != nil || key == "" {
+		return 0, nil, fmt.Errorf("%w: API key unavailable", ErrUnavailable)
 	}
-	addrs, err := net.DefaultResolver.LookupIPAddr(ctx, c.forwardHost)
+	var body io.Reader
+	if in != nil {
+		raw, err := json.Marshal(in)
+		if err != nil {
+			return 0, nil, fmt.Errorf("recursor: encode request: %w", err)
+		}
+		body = bytes.NewReader(raw)
+	}
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, method, c.base+path, body)
 	if err != nil {
-		return "", fmt.Errorf("resolve %s: %w", c.forwardHost, err)
+		return 0, nil, fmt.Errorf("recursor: build request: %w", err)
+	}
+	req.Header.Set("X-API-Key", key)
+	if in != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	resp, err := c.hc.Do(req)
+	if err != nil {
+		return 0, nil, fmt.Errorf("%w: %s request failed", ErrUnavailable, method)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	raw, _ := io.ReadAll(io.LimitReader(resp.Body, maxBody))
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		return resp.StatusCode, nil, &StatusError{Status: resp.StatusCode, Message: sanitize(string(raw), key)}
+	}
+	return resp.StatusCode, raw, nil
+}
+
+// target resolves the authoritative host to "ip:port" (IPv4 preferred, as the
+// source did).
+func (c *HTTPClient) target(ctx context.Context) (string, error) {
+	port := strconv.Itoa(c.fwdPort)
+	if a, err := netip.ParseAddr(c.fwdHost); err == nil {
+		return net.JoinHostPort(a.String(), port), nil
+	}
+	addrs, err := c.resolver.LookupIPAddr(ctx, c.fwdHost)
+	if err != nil || len(addrs) == 0 {
+		return "", fmt.Errorf("%w: cannot resolve the authoritative host", ErrUnavailable)
 	}
 	for _, a := range addrs {
 		if v4 := a.IP.To4(); v4 != nil {
-			return net.JoinHostPort(v4.String(), c.forwardPort), nil
+			return net.JoinHostPort(v4.String(), port), nil
 		}
 	}
-	if len(addrs) > 0 {
-		return net.JoinHostPort(addrs[0].IP.String(), c.forwardPort), nil
-	}
-	return "", fmt.Errorf("no addresses for %s", c.forwardHost)
+	return net.JoinHostPort(addrs[0].IP.String(), port), nil
 }
 
 type zonePayload struct {
@@ -88,83 +242,71 @@ type zonePayload struct {
 	RecursionDesired bool     `json:"recursion_desired"`
 }
 
-// SyncForwardZone (idempotently) points the recursor's forward entry for
-// zoneName at the current authoritative server IP. Safe to call repeatedly.
-func (c *Client) SyncForwardZone(ctx context.Context, zoneName string) error {
-	if !c.Enabled() {
+// SyncForward implements Client: delete-then-create always re-points the zone
+// at the current target, whether or not it existed.
+func (c *HTTPClient) SyncForward(ctx context.Context, zone string) error {
+	if !c.enabled {
 		return nil
 	}
-	name := canon(zoneName)
-	target, err := c.resolveTarget(ctx)
+	name, err := canon(zone)
 	if err != nil {
 		return err
 	}
-	body := zonePayload{Name: name, Kind: "Forwarded", Servers: []string{target}, RecursionDesired: false}
-
-	// Delete-then-create is deterministic: it always (re)points the zone at
-	// the current target IP, regardless of whether it already existed.
-	_, _, _ = c.do(ctx, http.MethodDelete, "/api/v1/servers/localhost/zones/"+name, nil)
-	status, resp, err := c.do(ctx, http.MethodPost, "/api/v1/servers/localhost/zones", body)
+	target, err := c.target(ctx)
 	if err != nil {
 		return err
 	}
-	if status == http.StatusCreated || status == http.StatusOK {
-		c.log.Infof("recursor: forwarding %s -> %s", name, target)
-		return nil
-	}
-	return fmt.Errorf("recursor sync %s: status %d (%s)", name, status, resp)
+	_, _, _ = c.do(ctx, http.MethodDelete, c.zonesPath()+"/"+url.PathEscape(name), nil)
+	_, _, err = c.do(ctx, http.MethodPost, c.zonesPath(), zonePayload{Name: name, Kind: "Forwarded", Servers: []string{target}})
+	return err
 }
 
-// RemoveForwardZone removes the recursor's forward entry for zoneName.
-// A missing entry (404) is treated as success.
-func (c *Client) RemoveForwardZone(ctx context.Context, zoneName string) error {
-	if !c.Enabled() {
+// RemoveForward implements Client (404/422 mean already absent).
+func (c *HTTPClient) RemoveForward(ctx context.Context, zone string) error {
+	if !c.enabled {
 		return nil
 	}
-	name := canon(zoneName)
-	status, resp, err := c.do(ctx, http.MethodDelete, "/api/v1/servers/localhost/zones/"+name, nil)
+	name, err := canon(zone)
 	if err != nil {
 		return err
 	}
-	// 404/422 mean the forward entry was already absent — treat as success
-	// (this recursor returns 422 when deleting a non-existent zone).
-	if status == http.StatusNoContent || status == http.StatusOK ||
-		status == http.StatusNotFound || status == http.StatusUnprocessableEntity {
-		c.log.Infof("recursor: stopped forwarding %s", name)
+	status, _, err := c.do(ctx, http.MethodDelete, c.zonesPath()+"/"+url.PathEscape(name), nil)
+	if status == http.StatusNotFound || status == http.StatusUnprocessableEntity {
 		return nil
 	}
-	return fmt.Errorf("recursor remove %s: status %d (%s)", name, status, resp)
+	return err
 }
 
-func (c *Client) do(ctx context.Context, method, path string, body any) (int, string, error) {
-	var reader io.Reader
-	if body != nil {
-		b, err := json.Marshal(body)
-		if err != nil {
-			return 0, "", err
+// ListForwards implements Client.
+func (c *HTTPClient) ListForwards(ctx context.Context) ([]string, error) {
+	if !c.enabled {
+		return nil, nil
+	}
+	_, raw, err := c.do(ctx, http.MethodGet, c.zonesPath(), nil)
+	if err != nil {
+		return nil, err
+	}
+	var zones []struct {
+		Name string `json:"name"`
+		Kind string `json:"kind"`
+	}
+	if err := json.Unmarshal(raw, &zones); err != nil {
+		return nil, fmt.Errorf("recursor: decode zones: %w", err)
+	}
+	out := []string{}
+	for _, z := range zones {
+		if strings.EqualFold(z.Kind, "Forwarded") {
+			out = append(out, z.Name)
 		}
-		reader = bytes.NewReader(b)
 	}
-	req, err := http.NewRequestWithContext(ctx, method, c.apiURL+path, reader)
-	if err != nil {
-		return 0, "", err
-	}
-	req.Header.Set("X-API-Key", c.apiKey)
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return 0, "", err
-	}
-	defer resp.Body.Close()
-	out, _ := io.ReadAll(resp.Body)
-	return resp.StatusCode, strings.TrimSpace(string(out)), nil
+	return out, nil
 }
 
-func getEnv(key, def string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
+// Ready implements Client.
+func (c *HTTPClient) Ready(ctx context.Context) error {
+	if !c.enabled {
+		return nil
 	}
-	return def
+	_, _, err := c.do(ctx, http.MethodGet, "/api/v1/servers/"+url.PathEscape(c.serverID), nil)
+	return err
 }

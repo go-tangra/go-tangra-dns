@@ -1,0 +1,4 @@
+[
+  {"ip": "192.0.2.53", "nameserver": "ns1.example.net.", "account": "0190f7c2-6a3e-7c1a-9b2e-2f6f9d1b4c55"},
+  {"ip": "2001:db8::53", "nameserver": "ns2.example.net.", "account": "0190f7c2-6a3e-7c1a-9b2e-2f6f9d1b4c66"}
+]

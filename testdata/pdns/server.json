@@ -1,0 +1,1 @@
+{"type": "Server", "id": "localhost", "daemon_type": "authoritative", "version": "4.9.4", "url": "/api/v1/servers/localhost", "config_url": "/api/v1/servers/localhost/config{/config_setting}", "zones_url": "/api/v1/servers/localhost/zones{/zone}"}
