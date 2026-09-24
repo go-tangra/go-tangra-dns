@@ -16,8 +16,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-freya/freya/services/dns/internal/repo"
-	"github.com/go-freya/freya/services/dns/internal/store"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/repo"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/store"
 )
 
 // injectedErr is the error FailNext arms for a given method.

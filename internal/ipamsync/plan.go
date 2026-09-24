@@ -15,8 +15,8 @@ import (
 
 	"golang.org/x/net/publicsuffix"
 
-	"github.com/go-freya/freya/services/dns/internal/store"
-	"github.com/go-freya/freya/services/dns/internal/validate"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/store"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/validate"
 )
 
 // ErrSkip marks an address the sync does not manage (bare or invalid host

@@ -8,9 +8,9 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	dnsv1 "github.com/go-freya/freya/services/dns/api/proto/dns/v1"
-	"github.com/go-freya/freya/services/dns/internal/store"
-	"github.com/go-freya/freya/services/dns/internal/zones"
+	dnsv1 "github.com/go-tangra/go-tangra-dns/v4/api/proto/dns/v1"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/store"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/zones"
 )
 
 // zoneError maps zone-service errors (zone_not_found → NotFound) before the

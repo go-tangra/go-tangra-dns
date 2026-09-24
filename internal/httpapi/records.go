@@ -3,9 +3,9 @@ package httpapi
 import (
 	"net/http"
 
-	"github.com/go-freya/freya/services/dns/internal/authz"
-	"github.com/go-freya/freya/services/dns/internal/records"
-	"github.com/go-freya/freya/services/dns/internal/validate"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/authz"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/records"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/validate"
 )
 
 // recordUpdate is the PUT body: the original (name, type) and the new set.

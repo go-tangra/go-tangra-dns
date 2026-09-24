@@ -10,15 +10,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-freya/freya/services/dns/internal/audit"
-	"github.com/go-freya/freya/services/dns/internal/authz"
-	"github.com/go-freya/freya/services/dns/internal/events"
-	"github.com/go-freya/freya/services/dns/internal/metrics"
-	"github.com/go-freya/freya/services/dns/internal/records"
-	"github.com/go-freya/freya/services/dns/internal/repo"
-	"github.com/go-freya/freya/services/dns/internal/store"
-	"github.com/go-freya/freya/services/dns/internal/validate"
-	"github.com/go-freya/freya/services/dns/internal/zones"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/audit"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/authz"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/events"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/metrics"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/records"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/repo"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/store"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/validate"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/zones"
 )
 
 // ErrNotFound is IPAM's "no such address in this tenant" (treated as deleted).

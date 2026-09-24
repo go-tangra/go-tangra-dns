@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/go-freya/freya/services/dns/internal/pdns"
-	"github.com/go-freya/freya/services/dns/internal/store"
-	"github.com/go-freya/freya/services/dns/internal/validate"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/pdns"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/store"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/validate"
 )
 
 // Placeholder is replaced by the zone name (without its trailing dot) in

@@ -18,11 +18,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-freya/freya/services/dns/internal/audit"
-	"github.com/go-freya/freya/services/dns/internal/authz"
-	"github.com/go-freya/freya/services/dns/internal/memstore"
-	"github.com/go-freya/freya/services/dns/internal/recursor"
-	"github.com/go-freya/freya/services/dns/internal/store"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/audit"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/authz"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/memstore"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/recursor"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/store"
 )
 
 const (

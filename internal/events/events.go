@@ -7,8 +7,8 @@ package events
 import (
 	"context"
 
-	"github.com/go-freya/freya/services/dns/internal/store"
-	"github.com/go-freya/freya/services/dns/internal/stream"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/store"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/stream"
 )
 
 // Event types published to platform:events:<tenant>.

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/go-freya/freya/services/dns/internal/pdns"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/pdns"
 )
 
 // MaxComment bounds a record set's comment.

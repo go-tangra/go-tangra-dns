@@ -11,14 +11,14 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/go-freya/freya/internal/testrt"
-	"github.com/go-freya/freya/internal/testutil"
-	"github.com/go-freya/freya/services/auth/pkg/authclient"
+	"github.com/go-tangra/go-tangra-auth/sdk/v4/pkg/authclient"
+	"github.com/go-tangra/go-tangra/v4/freyatest/testrt"
+	"github.com/go-tangra/go-tangra/v4/freyatest/testutil"
 
-	"github.com/go-freya/freya/services/dns/internal/authz"
-	"github.com/go-freya/freya/services/dns/internal/pdns"
-	"github.com/go-freya/freya/services/dns/internal/repo"
-	"github.com/go-freya/freya/services/dns/internal/validate"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/authz"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/pdns"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/repo"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/validate"
 )
 
 const (

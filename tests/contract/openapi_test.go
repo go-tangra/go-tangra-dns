@@ -14,12 +14,12 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 
-	"github.com/go-freya/freya/internal/testrt"
-	"github.com/go-freya/freya/internal/testutil"
+	"github.com/go-tangra/go-tangra/v4/freyatest/testrt"
+	"github.com/go-tangra/go-tangra/v4/freyatest/testutil"
 
-	"github.com/go-freya/freya/services/dns/internal/authz"
-	"github.com/go-freya/freya/services/dns/internal/httpapi"
-	"github.com/go-freya/freya/services/dns/pkg/dnsmanifest"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/authz"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/httpapi"
+	"github.com/go-tangra/go-tangra-dns/v4/pkg/dnsmanifest"
 )
 
 // contractRoutes are the routes of contracts/dns-api.md §A.

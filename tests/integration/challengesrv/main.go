@@ -26,16 +26,16 @@ import (
 
 	"google.golang.org/grpc"
 
-	"github.com/go-freya/freya/authn"
-	"github.com/go-freya/freya/identity"
-	"github.com/go-freya/freya/services/dns/internal/acmechallenge"
-	"github.com/go-freya/freya/services/dns/internal/authz"
-	"github.com/go-freya/freya/services/dns/internal/grpcapi"
-	"github.com/go-freya/freya/services/dns/internal/memstore"
-	"github.com/go-freya/freya/services/dns/internal/pdns"
-	"github.com/go-freya/freya/services/dns/internal/records"
-	"github.com/go-freya/freya/services/dns/internal/recursor"
-	"github.com/go-freya/freya/services/dns/internal/zones"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/acmechallenge"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/authz"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/grpcapi"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/memstore"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/pdns"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/records"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/recursor"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/zones"
+	"github.com/go-tangra/go-tangra/v4/authn"
+	"github.com/go-tangra/go-tangra/v4/identity"
 )
 
 func main() {

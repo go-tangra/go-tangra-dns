@@ -21,18 +21,18 @@ import (
 	"github.com/getkin/kin-openapi/routers"
 	"github.com/getkin/kin-openapi/routers/gorillamux"
 
-	"github.com/go-freya/freya/internal/testrt"
-	"github.com/go-freya/freya/internal/testutil"
-	"github.com/go-freya/freya/services/auth/pkg/authclient"
+	"github.com/go-tangra/go-tangra-auth/sdk/v4/pkg/authclient"
+	"github.com/go-tangra/go-tangra/v4/freyatest/testrt"
+	"github.com/go-tangra/go-tangra/v4/freyatest/testutil"
 
-	"github.com/go-freya/freya/services/dns/internal/authz"
-	"github.com/go-freya/freya/services/dns/internal/events"
-	"github.com/go-freya/freya/services/dns/internal/httpapi"
-	"github.com/go-freya/freya/services/dns/internal/memstore"
-	"github.com/go-freya/freya/services/dns/internal/pdns"
-	"github.com/go-freya/freya/services/dns/internal/records"
-	"github.com/go-freya/freya/services/dns/internal/recursor"
-	"github.com/go-freya/freya/services/dns/internal/zones"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/authz"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/events"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/httpapi"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/memstore"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/pdns"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/records"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/recursor"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/zones"
 )
 
 const (

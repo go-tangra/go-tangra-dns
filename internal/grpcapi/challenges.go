@@ -7,10 +7,10 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	dnsv1 "github.com/go-freya/freya/services/dns/api/proto/dns/v1"
-	"github.com/go-freya/freya/services/dns/internal/acmechallenge"
-	"github.com/go-freya/freya/services/dns/internal/authz"
-	"github.com/go-freya/freya/services/dns/internal/pdns"
+	dnsv1 "github.com/go-tangra/go-tangra-dns/v4/api/proto/dns/v1"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/acmechallenge"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/authz"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/pdns"
 )
 
 // challengeError maps challenge-service errors to a gRPC status carrying only

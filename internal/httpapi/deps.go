@@ -3,16 +3,16 @@ package httpapi
 import (
 	"net/http"
 
-	"github.com/go-freya/freya/services/dns/internal/backup"
-	"github.com/go-freya/freya/services/dns/internal/stream"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/backup"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/stream"
 
-	"github.com/go-freya/freya/services/dns/internal/dashboard"
-	"github.com/go-freya/freya/services/dns/internal/dnsconf"
-	"github.com/go-freya/freya/services/dns/internal/records"
-	"github.com/go-freya/freya/services/dns/internal/supermasters"
-	"github.com/go-freya/freya/services/dns/internal/templates"
-	"github.com/go-freya/freya/services/dns/internal/validate"
-	"github.com/go-freya/freya/services/dns/internal/zones"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/dashboard"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/dnsconf"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/records"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/supermasters"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/templates"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/validate"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/zones"
 )
 
 // Prefix of the browser API.

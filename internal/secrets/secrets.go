@@ -31,7 +31,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
-	wardenv1 "github.com/go-freya/freya/services/warden/api/proto/warden/v1"
+	wardenv1 "github.com/go-tangra/go-tangra-warden/sdk/v4/api/proto/warden/v1"
 )
 
 // Errors (never carry secret material).

@@ -4,8 +4,8 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/go-freya/freya/services/dns/internal/authz"
-	"github.com/go-freya/freya/services/dns/internal/dnsconf"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/authz"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/dnsconf"
 )
 
 // registerConfig mounts the server-configuration routes (US5; config:manage

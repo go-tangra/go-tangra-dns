@@ -7,12 +7,12 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	dnsv1 "github.com/go-freya/freya/services/dns/api/proto/dns/v1"
-	"github.com/go-freya/freya/services/dns/internal/authz"
-	"github.com/go-freya/freya/services/dns/internal/memstore"
-	"github.com/go-freya/freya/services/dns/internal/pdns"
-	"github.com/go-freya/freya/services/dns/internal/store"
-	"github.com/go-freya/freya/services/dns/internal/zones"
+	dnsv1 "github.com/go-tangra/go-tangra-dns/v4/api/proto/dns/v1"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/authz"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/memstore"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/pdns"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/store"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/zones"
 )
 
 const other = "0190f7c2-6a3e-7c1a-9b2e-2f6f9d1b4c66"

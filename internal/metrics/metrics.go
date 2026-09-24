@@ -25,7 +25,7 @@ import (
 )
 
 // Scope is the instrumentation scope name.
-const Scope = "github.com/go-freya/freya/services/dns"
+const Scope = "github.com/go-tangra/go-tangra-dns/v4"
 
 // Results (closed set).
 const (

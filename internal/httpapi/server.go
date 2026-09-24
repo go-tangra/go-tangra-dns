@@ -18,10 +18,10 @@ import (
 	"github.com/getkin/kin-openapi/routers"
 	"github.com/getkin/kin-openapi/routers/gorillamux"
 
-	"github.com/go-freya/freya/services/dns/api/openapi"
-	"github.com/go-freya/freya/services/dns/internal/authz"
-	"github.com/go-freya/freya/transport"
-	"github.com/go-freya/freya/transport/edge"
+	"github.com/go-tangra/go-tangra-dns/v4/api/openapi"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/authz"
+	"github.com/go-tangra/go-tangra/v4/transport"
+	"github.com/go-tangra/go-tangra/v4/transport/edge"
 )
 
 // RemotePrefix is where the federated remote is served to the gateway

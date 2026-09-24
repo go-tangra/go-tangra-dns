@@ -7,14 +7,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-freya/freya/services/dns/internal/audit"
-	"github.com/go-freya/freya/services/dns/internal/authz"
-	"github.com/go-freya/freya/services/dns/internal/events"
-	"github.com/go-freya/freya/services/dns/internal/memstore"
-	"github.com/go-freya/freya/services/dns/internal/pdns"
-	"github.com/go-freya/freya/services/dns/internal/store"
-	"github.com/go-freya/freya/services/dns/internal/validate"
-	"github.com/go-freya/freya/services/dns/internal/zones"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/audit"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/authz"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/events"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/memstore"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/pdns"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/store"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/validate"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/zones"
 )
 
 const (

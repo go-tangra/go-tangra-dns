@@ -8,7 +8,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/go-freya/freya/services/ipam/pkg/ipamclient"
+	"github.com/go-tangra/go-tangra-ipam/sdk/v4/pkg/ipamclient"
 )
 
 type stubReader struct{ err error }

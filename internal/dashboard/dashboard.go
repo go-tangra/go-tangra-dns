@@ -8,7 +8,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/go-freya/freya/services/dns/internal/authz"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/authz"
 )
 
 // ErrWindow refuses a window outside {1h, 6h, 24h}.

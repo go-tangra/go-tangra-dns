@@ -7,13 +7,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/go-freya/freya/services/dns/internal/authz"
-	"github.com/go-freya/freya/services/dns/internal/records"
-	"github.com/go-freya/freya/services/dns/internal/store"
-	"github.com/go-freya/freya/services/dns/internal/supermasters"
-	"github.com/go-freya/freya/services/dns/internal/templates"
-	"github.com/go-freya/freya/services/dns/internal/validate"
-	"github.com/go-freya/freya/services/dns/internal/zones"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/authz"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/records"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/store"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/supermasters"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/templates"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/validate"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/zones"
 )
 
 // domainError maps the zones/records services' sentinels to contract reasons.

@@ -12,13 +12,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/go-freya/freya/internal/testrt"
-	"github.com/go-freya/freya/internal/testutil"
+	"github.com/go-tangra/go-tangra/v4/freyatest/testrt"
+	"github.com/go-tangra/go-tangra/v4/freyatest/testutil"
 
-	"github.com/go-freya/freya/services/dns/internal/authz"
-	"github.com/go-freya/freya/services/dns/internal/dnsconf"
-	"github.com/go-freya/freya/services/dns/internal/httpapi"
-	"github.com/go-freya/freya/services/dns/internal/memstore"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/authz"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/dnsconf"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/httpapi"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/memstore"
 )
 
 func newConfigHarness(t *testing.T) (*harness, *dnsconf.Fake, string) {

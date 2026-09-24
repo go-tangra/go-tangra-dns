@@ -7,8 +7,8 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/go-freya/freya/services/dns/internal/authz"
-	"github.com/go-freya/freya/services/dns/internal/backup"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/authz"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/backup"
 )
 
 // MaxImportBytes bounds a backup import body (x-freya-max-body-bytes).

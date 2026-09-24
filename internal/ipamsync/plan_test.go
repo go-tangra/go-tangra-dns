@@ -5,7 +5,7 @@ import (
 	"net/netip"
 	"testing"
 
-	"github.com/go-freya/freya/services/dns/internal/store"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/store"
 )
 
 func zonesOf(names ...string) []store.Zone {

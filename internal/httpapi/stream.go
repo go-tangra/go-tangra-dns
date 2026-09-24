@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/go-freya/freya/services/dns/internal/stream"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/stream"
 )
 
 // registerStream mounts GET /stream: a per-signed-in-user SSE stream of the

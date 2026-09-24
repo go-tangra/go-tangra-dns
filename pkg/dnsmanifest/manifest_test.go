@@ -10,9 +10,9 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 	"google.golang.org/grpc"
 
-	authv1 "github.com/go-freya/freya/services/auth/api/proto/auth/v1"
-	"github.com/go-freya/freya/services/dns/api/openapi"
-	"github.com/go-freya/freya/services/dns/internal/authz"
+	authv1 "github.com/go-tangra/go-tangra-auth/sdk/v4/api/proto/auth/v1"
+	"github.com/go-tangra/go-tangra-dns/v4/api/openapi"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/authz"
 )
 
 func TestOpenAPIParsesAndValidates(t *testing.T) {

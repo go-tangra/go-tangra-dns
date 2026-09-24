@@ -7,10 +7,10 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/go-freya/freya/services/dns/internal/authz"
-	"github.com/go-freya/freya/services/dns/internal/pdns"
-	"github.com/go-freya/freya/services/dns/internal/repo"
-	"github.com/go-freya/freya/services/dns/internal/validate"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/authz"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/pdns"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/repo"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/validate"
 )
 
 // Error is a refusal with a stable reason from the closed vocabulary of

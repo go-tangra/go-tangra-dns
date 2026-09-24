@@ -18,7 +18,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	dnsv1 "github.com/go-freya/freya/services/dns/api/proto/dns/v1"
+	dnsv1 "github.com/go-tangra/go-tangra-dns/v4/api/proto/dns/v1"
 )
 
 // Typed errors (mapped from the gRPC status code only).

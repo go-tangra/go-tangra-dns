@@ -7,7 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/go-freya/freya/services/dns/internal/stream"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/stream"
 )
 
 // Reader is the subset of the event-bus client the consumer needs

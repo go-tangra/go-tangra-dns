@@ -14,7 +14,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
 
-	"github.com/go-freya/freya/services/lcm/pkg/dnschallenge"
+	"github.com/go-tangra/go-tangra-lcm/sdk/v4/pkg/dnschallenge"
 )
 
 func TestLCMClientWireCompatibility(t *testing.T) {

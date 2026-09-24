@@ -10,18 +10,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-freya/freya/internal/testrt"
-	"github.com/go-freya/freya/internal/testutil"
+	"github.com/go-tangra/go-tangra/v4/freyatest/testrt"
+	"github.com/go-tangra/go-tangra/v4/freyatest/testutil"
 
-	"github.com/go-freya/freya/services/dns/internal/authz"
-	"github.com/go-freya/freya/services/dns/internal/backup"
-	"github.com/go-freya/freya/services/dns/internal/events"
-	"github.com/go-freya/freya/services/dns/internal/httpapi"
-	"github.com/go-freya/freya/services/dns/internal/memstore"
-	"github.com/go-freya/freya/services/dns/internal/pdns"
-	"github.com/go-freya/freya/services/dns/internal/recursor"
-	"github.com/go-freya/freya/services/dns/internal/stream"
-	"github.com/go-freya/freya/services/dns/internal/zones"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/authz"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/backup"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/events"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/httpapi"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/memstore"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/pdns"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/recursor"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/stream"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/zones"
 )
 
 func newBackupHarness(t *testing.T) (*harness, *stream.Hub) {

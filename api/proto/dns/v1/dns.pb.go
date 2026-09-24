@@ -579,7 +579,7 @@ const file_dns_v1_dns_proto_rawDesc = "" +
 	"\x05Zones\x12;\n" +
 	"\x04List\x12\x18.dns.v1.ListZonesRequest\x1a\x19.dns.v1.ListZonesResponse\x12+\n" +
 	"\x03Get\x12\x16.dns.v1.GetZoneRequest\x1a\f.dns.v1.Zone\x127\n" +
-	"\vFindForName\x12\x1a.dns.v1.FindForNameRequest\x1a\f.dns.v1.ZoneB?Z=github.com/go-freya/freya/services/dns/api/proto/dns/v1;dnsv1b\x06proto3"
+	"\vFindForName\x12\x1a.dns.v1.FindForNameRequest\x1a\f.dns.v1.ZoneB>Z<github.com/go-tangra/go-tangra-dns/v4/api/proto/dns/v1;dnsv1b\x06proto3"
 
 var (
 	file_dns_v1_dns_proto_rawDescOnce sync.Once

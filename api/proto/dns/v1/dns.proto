@@ -14,7 +14,7 @@ syntax = "proto3";
 // challenge token, or configuration file contents.
 package dns.v1;
 
-option go_package = "github.com/go-freya/freya/services/dns/api/proto/dns/v1;dnsv1";
+option go_package = "github.com/go-tangra/go-tangra-dns/v4/api/proto/dns/v1;dnsv1";
 
 // Challenges is the lcm-only ACME DNS-01 surface.
 service Challenges {

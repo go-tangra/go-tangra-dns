@@ -10,8 +10,8 @@ import (
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/getkin/kin-openapi/routers"
 
-	"github.com/go-freya/freya/services/auth/pkg/authclient"
-	"github.com/go-freya/freya/services/dns/internal/authz"
+	"github.com/go-tangra/go-tangra-auth/sdk/v4/pkg/authclient"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/authz"
 )
 
 // OpenAPI operation extensions.

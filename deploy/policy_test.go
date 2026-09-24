@@ -10,8 +10,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/go-freya/freya/authz"
-	"github.com/go-freya/freya/identity"
+	"github.com/go-tangra/go-tangra/v4/authz"
+	"github.com/go-tangra/go-tangra/v4/identity"
 )
 
 func load(t *testing.T) *authz.Policy {

@@ -5,10 +5,10 @@ import (
 	"errors"
 	"time"
 
-	"github.com/go-freya/freya/services/dns/internal/audit"
-	"github.com/go-freya/freya/services/dns/internal/authz"
-	"github.com/go-freya/freya/services/dns/internal/repo"
-	"github.com/go-freya/freya/services/dns/internal/zones"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/audit"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/authz"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/repo"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/zones"
 )
 
 // sweepBatch bounds one sweep pass.

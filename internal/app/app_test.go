@@ -11,20 +11,20 @@ import (
 
 	"google.golang.org/grpc"
 
-	"github.com/go-freya/freya"
-	authv1 "github.com/go-freya/freya/services/auth/api/proto/auth/v1"
-	"github.com/go-freya/freya/services/auth/pkg/authclient"
+	authv1 "github.com/go-tangra/go-tangra-auth/sdk/v4/api/proto/auth/v1"
+	"github.com/go-tangra/go-tangra-auth/sdk/v4/pkg/authclient"
+	"github.com/go-tangra/go-tangra/v4"
 
-	"github.com/go-freya/freya/services/dns/internal/authz"
-	"github.com/go-freya/freya/services/dns/internal/config"
-	"github.com/go-freya/freya/services/dns/internal/dashboard"
-	"github.com/go-freya/freya/services/dns/internal/dnsconf"
-	"github.com/go-freya/freya/services/dns/internal/ipamsync"
-	"github.com/go-freya/freya/services/dns/internal/memstore"
-	"github.com/go-freya/freya/services/dns/internal/pdns"
-	"github.com/go-freya/freya/services/dns/internal/recursor"
-	"github.com/go-freya/freya/services/dns/internal/secrets"
-	"github.com/go-freya/freya/services/dns/internal/stream"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/authz"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/config"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/dashboard"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/dnsconf"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/ipamsync"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/memstore"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/pdns"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/recursor"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/secrets"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/stream"
 )
 
 const (

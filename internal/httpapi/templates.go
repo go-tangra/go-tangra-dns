@@ -3,9 +3,9 @@ package httpapi
 import (
 	"net/http"
 
-	"github.com/go-freya/freya/services/dns/internal/authz"
-	"github.com/go-freya/freya/services/dns/internal/supermasters"
-	"github.com/go-freya/freya/services/dns/internal/templates"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/authz"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/supermasters"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/templates"
 )
 
 // registerTemplates mounts the zone-template routes (US3).

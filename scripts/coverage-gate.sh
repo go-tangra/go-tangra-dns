@@ -5,7 +5,7 @@
 # zone/record names, masters/IP guards and, from US1, per-type record content).
 set -euo pipefail
 PROFILE="${1:-coverage.out}"
-MODULE="github.com/go-freya/freya/services/dns"
+MODULE="github.com/go-tangra/go-tangra-dns/v4"
 SECURITY_PKGS=("internal/authz" "internal/sealed" "internal/validate")
 total=$(go tool cover -func="$PROFILE" | awk '/^total:/ {gsub("%","",$3); print $3}')
 echo "coverage: total ${total}%"

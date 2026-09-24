@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/go-freya/freya/services/dns/internal/pdns"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/pdns"
 )
 
 const zone = "example.com."

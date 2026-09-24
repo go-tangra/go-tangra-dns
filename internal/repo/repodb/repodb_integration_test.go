@@ -30,10 +30,10 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 
-	"github.com/go-freya/freya/services/dns/internal/repo"
-	"github.com/go-freya/freya/services/dns/internal/repo/repodb"
-	"github.com/go-freya/freya/services/dns/internal/repo/repotest"
-	"github.com/go-freya/freya/services/dns/internal/store"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/repo"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/repo/repodb"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/repo/repotest"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/store"
 )
 
 type dbEnv struct {

@@ -16,14 +16,14 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/go-freya/freya/authn"
-	dnsv1 "github.com/go-freya/freya/services/dns/api/proto/dns/v1"
-	"github.com/go-freya/freya/services/dns/internal/acmechallenge"
-	"github.com/go-freya/freya/services/dns/internal/authz"
-	"github.com/go-freya/freya/services/dns/internal/pdns"
-	"github.com/go-freya/freya/services/dns/internal/repo"
-	"github.com/go-freya/freya/services/dns/internal/validate"
-	"github.com/go-freya/freya/services/dns/internal/zones"
+	dnsv1 "github.com/go-tangra/go-tangra-dns/v4/api/proto/dns/v1"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/acmechallenge"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/authz"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/pdns"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/repo"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/validate"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/zones"
+	"github.com/go-tangra/go-tangra/v4/authn"
 )
 
 var uuidRE = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)

@@ -6,7 +6,7 @@ import (
 
 	"github.com/miekg/dns"
 
-	"github.com/go-freya/freya/services/dns/internal/pdns"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/pdns"
 )
 
 // assertContent checks the invariants of an accepted value: exactly one RR of

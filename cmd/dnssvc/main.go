@@ -11,10 +11,10 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/go-freya/freya/services/dns/internal/app"
-	"github.com/go-freya/freya/services/dns/internal/config"
-	"github.com/go-freya/freya/services/dns/internal/store"
-	"github.com/go-freya/freya/services/dns/ui"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/app"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/config"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/store"
+	"github.com/go-tangra/go-tangra-dns/v4/ui"
 )
 
 func main() {

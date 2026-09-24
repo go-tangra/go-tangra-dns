@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/go-freya/freya/services/dns/internal/store"
-	"github.com/go-freya/freya/services/dns/internal/validate"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/store"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/validate"
 )
 
 // T057: arbitrary template records and zone names never panic; every

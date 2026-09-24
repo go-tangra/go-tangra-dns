@@ -11,7 +11,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/go-freya/freya/services/dns/internal/store"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/store"
 )
 
 // Sentinel errors every implementation maps its failures to.

@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-freya/freya/services/dns/internal/authz"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/authz"
 )
 
 const tenant = "11111111-1111-7111-8111-111111111111"
