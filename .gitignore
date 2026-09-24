@@ -1,0 +1,9 @@
+ui/node_modules/
+ui/dist/
+ui/test-results/
+ui/playwright-report/
+ui/.mf/
+.artifacts/
+coverage.out
+bin/
+/dnssvc
