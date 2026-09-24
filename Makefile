@@ -1,87 +1,52 @@
-# Makefile for DNS Service
+GO        ?= go
+PKGS      := $(shell $(GO) list ./... | grep -v /ui/)
+COVER_OUT := coverage.out
 
-VERSION ?= 1.0.0
-GOFLAGS ?=
-LDFLAGS ?= -X main.version=$(VERSION) -s -w
+.PHONY: lint vuln test test-integration cover generate ui-build build build-ui image redaction-scan
 
-DNS_IMAGE_NAME ?= menta2l/dns-service
-DNS_IMAGE_TAG ?= $(VERSION)
-DOCKER_REGISTRY ?=
+lint:
+	$(GO) vet ./...
+	staticcheck ./...
+	gosec -quiet -exclude-generated -exclude-dir=ui ./...
 
-# Generate ent ORM code
-.PHONY: ent
-ent:
-	@echo "Generating ent code..."
-	@GOFLAGS=-mod=mod ent generate \
-		--feature sql/modifier \
-		--feature sql/upsert \
-		--feature sql/lock \
-		./internal/data/ent/schema
+vuln:
+	./scripts/vulncheck.sh
 
-# Generate proto Go code
-.PHONY: api
-api:
-	@echo "Generating proto code..."
-	@buf generate
-
-# Generate the OpenAPI spec embedded for registration
-.PHONY: openapi
-openapi:
-	@echo "Generating OpenAPI spec..."
-	@buf generate --template buf.openapi.gen.yaml
-
-# Generate proto descriptor for dynamic routing / transcoding
-.PHONY: descriptor
-descriptor:
-	@echo "Generating proto descriptor..."
-	@buf build -o cmd/server/assets/descriptor.bin --exclude-source-info
-	@echo "Proto descriptor generated: cmd/server/assets/descriptor.bin"
-
-# Generate wire dependencies
-.PHONY: wire
-wire:
-	@cd ./cmd/server && GOFLAGS=-mod=mod wire
-
-# Generate everything
-.PHONY: generate
-generate: api ent descriptor openapi wire
-	@echo "Generation complete!"
-
-# Build the server binary
-.PHONY: build-server
-build-server:
-	@echo "Building DNS server..."
-	@go build $(GOFLAGS) -ldflags "$(LDFLAGS)" -o ./bin/dns-server ./cmd/server
-
-# Run the server locally
-.PHONY: run-server
-run-server:
-	@go run ./cmd/server -c ./configs
-
-# Build Docker image
-.PHONY: docker
-docker:
-	@echo "Building Docker image $(DNS_IMAGE_NAME):$(DNS_IMAGE_TAG)..."
-	@docker build \
-		-t $(DNS_IMAGE_NAME):$(DNS_IMAGE_TAG) \
-		-t $(DNS_IMAGE_NAME):latest \
-		--build-arg APP_VERSION=$(VERSION) \
-		-f ./Dockerfile \
-		.
-
-# Run tests
-.PHONY: test
 test:
-	@go test -v ./...
+	$(GO) test -race -count=1 ./...
 
-# Run tests with coverage
-.PHONY: test-cover
-test-cover:
-	@go test -v -coverprofile=coverage.out ./...
-	@go tool cover -html=coverage.out -o coverage.html
+test-integration:
+	$(GO) test -race -count=1 -tags integration ./internal/repo/repodb/ ./tests/integration/...
 
-# Clean build artifacts
-.PHONY: clean
-clean:
-	@rm -rf ./bin
-	@rm -f coverage.out coverage.html
+# Generated protobuf, SQL bindings (internal/store, */*db), wiring (internal/app,
+# cmd) and test packages are exercised by the tagged integration suite and are
+# excluded from the unit gate on purpose.
+COVERPKG := $(shell $(GO) list ./... | grep -v -E '/api/|/internal/store$$|db$$|/internal/app$$|/valkeykv$$|/cmd/|/tests/|/ui|/internal/stream|/repotest' | paste -sd, -)
+
+cover:
+	$(GO) test -count=1 -coverprofile=$(COVER_OUT) -coverpkg=$(COVERPKG) $(PKGS)
+	./scripts/coverage-gate.sh $(COVER_OUT)
+
+generate:
+	buf generate
+
+# SR-002/SC-007: sentinel API keys never appear in captured output.
+redaction-scan:
+	./scripts/redaction-scan.sh
+
+# Build the federated UI remote (produces ui/dist consumed by the -tags ui build).
+ui-build:
+	cd ui && npm ci && npm run build
+
+# Build the service binary without the embedded UI.
+build:
+	$(GO) build -o bin/dnssvc ./cmd/dnssvc
+
+# Build the service binary with the embedded UI remote (requires ui-build first).
+build-ui: ui-build
+	$(GO) build -tags "ui" -o bin/dnssvc ./cmd/dnssvc
+
+# Build the container image; NODE_AUTH_TOKEN (read:packages) installs @go-tangra/ui.
+image:
+	DOCKER_BUILDKIT=1 docker buildx build --secret id=npm_token,env=NODE_AUTH_TOKEN -t go-tangra-dns:dev .
+

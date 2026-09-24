@@ -1,184 +1,159 @@
+# go-tangra-dns CI (go-tangra v4). Generated from go-freya tools/split/templates/ci.yaml.tmpl.
+#
+# Images: ghcr.io/go-tangra/go-tangra-dns tagged <version>, <major>.<minor>, <major> (from tags vX.Y.Z)
+# and sha-<short> (default-branch pushes and tags). There is deliberately NO `latest`,
+# NO branch tag and NO registry cleanup job: the v3.x images published by the old
+# workflow must stay available.
+#
+# SDK releases: this repository has no sdk/ module; if one is added it is tagged `sdk/vX.Y.Z` by hand.
+# The tag filter 'v*' is a glob anchored at the start of the tag name (`*` does not
+# cross `/`), so `sdk/v4.0.0` never matches it and never builds or pushes an image.
 name: CI
 
 on:
-  workflow_dispatch:
   push:
     branches:
       - main
-      - master
     tags:
       - 'v*'
   pull_request:
     branches:
       - main
-      - master
-  schedule:
-    - cron: '0 0 * * 0'
-
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  workflow_dispatch:
 
 permissions:
   contents: read
-  packages: write
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  GOWORK: 'off'
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ghcr.io/go-tangra/go-tangra-dns
 
 jobs:
-  build:
-    name: Build
+  go:
+    name: Go vet + test
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-go@v5
         with:
-          node-version: '20'
+          go-version-file: go.mod
+          cache-dependency-path: |
+            go.sum
 
-      - name: Install pnpm
-        run: npm install -g pnpm@9
+      - name: go vet (service)
+        run: go vet ./...
 
-      - name: Build frontend
-        working-directory: frontend
-        run: |
-          pnpm install --frozen-lockfile || pnpm install
-          pnpm build
-          mkdir -p ../cmd/server/assets/frontend-dist
-          cp -r dist/* ../cmd/server/assets/frontend-dist/
+      - name: go test -race (service)
+        run: go test -race ./...
 
-      - name: Setup Go
-        uses: actions/setup-go@v5
+  ui:
+    name: UI lint + unit tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    defaults:
+      run:
+        working-directory: ui
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
         with:
-          go-version: '1.25'
-          cache: true
+          node-version: '22'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@go-tangra'
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
 
-      - name: Download dependencies
-        run: go mod download
+      - name: npm ci
+        run: npm ci --no-audit --no-fund
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build
-        run: go build ./...
+      - name: Lint
+        run: npm run lint
 
-  buf-lint:
-    name: Buf Lint
+      - name: Unit tests (vitest)
+        run: npm run test:unit
+
+  buf:
+    name: Buf lint
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Buf
-        uses: bufbuild/buf-setup-action@v1
+      - uses: bufbuild/buf-action@v1
         with:
+          setup_only: true
           github_token: ${{ github.token }}
 
-      - name: Buf lint
-        uses: bufbuild/buf-lint-action@v1
-        with:
-          input: protos
+      - name: buf lint
+        run: buf lint
 
-  buf-breaking:
-    name: Buf Breaking Change Detection
+  docker:
+    name: Docker image
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Buf
-        uses: bufbuild/buf-setup-action@v1
-        with:
-          github_token: ${{ github.token }}
-
-      - name: Buf breaking change detection
-        uses: bufbuild/buf-breaking-action@v1
-        with:
-          input: protos
-          against: 'https://github.com/${{ github.repository }}.git#branch=${{ github.base_ref }},subdir=protos'
-
-  buf-push:
-    name: Buf Push
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
     needs:
-      - build
-      - buf-lint
+      - go
+      - ui
+      - buf
+    permissions:
+      contents: read
+      packages: write
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Buf
-        uses: bufbuild/buf-setup-action@v1
-        with:
-          github_token: ${{ github.token }}
+      - uses: docker/setup-buildx-action@v3
 
-      - name: Buf push
-        uses: bufbuild/buf-push-action@v1
-        with:
-          input: protos
-          buf_token: ${{ secrets.BUF_TOKEN }}
-
-  docker-build:
-    name: Build and Push Docker Image
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push'
-    needs:
-      - build
-      - buf-lint
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to Container Registry
+      - name: Log in to GHCR
+        if: github.event_name == 'push'
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata for Docker
+      - name: App version
+        id: version
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Image metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.IMAGE_NAME }}
+          flavor: |
+            latest=false
           tags: |
-            # Set latest tag for main branch
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
-            # Tag with branch name
-            type=ref,event=branch
-            # Tag with semantic version from git tag
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
-            # Tag with commit SHA
-            type=sha,prefix=
+            type=sha
 
-      - name: Build and push Docker image
+      - name: Build (push on tags and main pushes only)
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
-          push: true
+          push: ${{ github.event_name == 'push' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          secrets: |
+            npm_token=${{ secrets.GITHUB_TOKEN }}
           build-args: |
-            APP_VERSION=${{ github.ref_name }}
-
-  cleanup-ghcr:
-    name: Cleanup Old GHCR Images
-    runs-on: ubuntu-latest
-    needs: docker-build
-    if: always() && (github.event_name == 'schedule' || (github.event_name == 'push' && needs.docker-build.result == 'success'))
-    permissions:
-      packages: write
-    steps:
-      - name: Cleanup GHCR images
-        uses: dataaxiom/ghcr-cleanup-action@v1
-        with:
-          delete-untagged: true
-          keep-n-tagged: 3
-          token: ${{ secrets.GHCR_CLEANUP_TOKEN }}
+            APP_VERSION=${{ steps.version.outputs.value }}
+            VCS_REF=${{ github.sha }}

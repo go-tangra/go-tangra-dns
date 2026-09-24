@@ -1,0 +1,618 @@
+openapi: 3.1.0
+info:
+  title: DNS API
+  version: 0.1.0
+  description: >
+    Tenant-scoped DNS management plane over a shared PowerDNS Authoritative
+    server and Recursor: zones (native/master/slave/producer/consumer, DNSSEC
+    flag), record sets (15 editable types + read-only SOA), zone templates,
+    supermasters, BIND export and NOTIFY, platform-admin server configuration
+    applied by restarting only the affected configured container, a curated
+    metrics dashboard, a live event stream and tenant backup. Gateway-proxied
+    under /api/dns. Every route declares an x-freya-permission (or
+    x-freya-public); mutating routes carry the platform CSRF header. No response
+    carries PowerDNS/recursor API keys, Docker details beyond the two configured
+    container names, or rendered configuration file contents.
+servers:
+  - url: /
+components:
+  parameters:
+    csrf:
+      name: X-CSRF-Token
+      in: header
+      required: true
+      schema: { type: string, maxLength: 128 }
+    id:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, maxLength: 64 }
+      example: '018f3a2b-0000-7000-8000-000000000001'
+    page:
+      name: page
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, maximum: 100000 }
+    pageSize:
+      name: page_size
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, maximum: 100 }
+    recordPageSize:
+      name: page_size
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, maximum: 500 }
+  schemas:
+    Error:
+      type: object
+      properties:
+        reason:
+          type: string
+          description: >
+            bad_request | invalid_name | invalid_record | invalid_kind |
+            invalid_config | zone_not_found | record_not_found |
+            template_not_found | duplicate | conflict | forbidden |
+            pdns_unavailable | metrics_unavailable | unauthenticated | not_found |
+            validation_failed | malformed_body | body_too_large |
+            temporarily_unavailable | not_implemented
+        detail: { type: object }
+    ZoneKind: { type: string, enum: [native, master, slave, producer, consumer] }
+    ZoneOrigin: { type: string, enum: [manual, ipam] }
+    EditableType:
+      type: string
+      enum: [A, AAAA, CNAME, MX, NS, PTR, SRV, TXT, CAA, DS, DNSKEY, TLSA, SSHFP, SPF, NAPTR]
+    Zone:
+      type: object
+      required: [id, name, kind, masters, dnssec, origin, created_at, updated_at]
+      properties:
+        id: { type: string }
+        name: { type: string, description: 'canonical: lower-case, trailing dot, A-labels' }
+        kind: { $ref: '#/components/schemas/ZoneKind' }
+        masters: { type: array, items: { type: string } }
+        dnssec: { type: boolean }
+        description: { type: string }
+        template_id: { type: string }
+        origin: { $ref: '#/components/schemas/ZoneOrigin' }
+        nameservers: { type: array, items: { type: string } }
+        created_by: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    ZoneDetail:
+      allOf:
+        - { $ref: '#/components/schemas/Zone' }
+        - type: object
+          properties:
+            serial: { type: integer, description: 'from PowerDNS' }
+            notified_serial: { type: integer, description: 'from PowerDNS' }
+    ZonePage:
+      type: object
+      required: [items, total]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Zone' } }
+        total: { type: integer }
+    ZoneCreate:
+      type: object
+      additionalProperties: false
+      required: [name, kind]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 254 }
+        kind: { $ref: '#/components/schemas/ZoneKind' }
+        masters: { type: array, maxItems: 16, items: { type: string, maxLength: 64 } }
+        nameservers: { type: array, maxItems: 16, items: { type: string, maxLength: 254 } }
+        dnssec: { type: boolean }
+        description: { type: string, maxLength: 1000 }
+        template_id: { type: string, maxLength: 64 }
+    ZoneUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        kind: { $ref: '#/components/schemas/ZoneKind' }
+        masters: { type: array, maxItems: 16, items: { type: string, maxLength: 64 } }
+        dnssec: { type: boolean }
+        description: { type: string, maxLength: 1000 }
+    ZoneExport:
+      type: object
+      required: [zone, text]
+      properties:
+        zone: { type: string }
+        text: { type: string, description: 'BIND zone text (size-capped)' }
+    RecordValue:
+      type: object
+      additionalProperties: false
+      required: [content]
+      properties:
+        content: { type: string, minLength: 1, maxLength: 4096 }
+        disabled: { type: boolean }
+    RecordSetInput:
+      type: object
+      additionalProperties: false
+      required: [name, type, ttl, values]
+      properties:
+        name: { type: string, maxLength: 254, description: '"@" | relative | absolute (trailing dot)' }
+        type: { $ref: '#/components/schemas/EditableType' }
+        ttl: { type: integer, minimum: 1, maximum: 2147483647 }
+        values: { type: array, minItems: 1, maxItems: 100, items: { $ref: '#/components/schemas/RecordValue' } }
+        comment: { type: string, maxLength: 512 }
+    RecordSet:
+      type: object
+      required: [name, type, ttl, values, read_only]
+      properties:
+        name: { type: string, description: 'qualified owner name' }
+        type: { type: string }
+        ttl: { type: integer }
+        values:
+          type: array
+          items:
+            type: object
+            required: [content, disabled]
+            properties:
+              content: { type: string }
+              disabled: { type: boolean }
+        comment: { type: string }
+        read_only: { type: boolean, description: 'true for SOA' }
+    RecordPage:
+      type: object
+      required: [items, total]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/RecordSet' } }
+        total: { type: integer }
+    RecordUpdate:
+      type: object
+      additionalProperties: false
+      required: [original, record]
+      properties:
+        original:
+          type: object
+          additionalProperties: false
+          required: [name, type]
+          properties:
+            name: { type: string, maxLength: 254 }
+            type: { $ref: '#/components/schemas/EditableType' }
+        record: { $ref: '#/components/schemas/RecordSetInput' }
+    TemplateRecord:
+      type: object
+      additionalProperties: false
+      required: [name, type, ttl, content]
+      properties:
+        name: { type: string, maxLength: 254, description: 'may contain [ZONE]; "@" or empty = apex' }
+        type: { $ref: '#/components/schemas/EditableType' }
+        ttl: { type: integer, minimum: 1, maximum: 2147483647 }
+        content: { type: string, minLength: 1, maxLength: 4096, description: 'may contain [ZONE]' }
+        priority: { type: integer, minimum: 0, maximum: 65535, description: 'MX/SRV' }
+    TemplateInput:
+      type: object
+      additionalProperties: false
+      required: [name, records]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        description: { type: string, maxLength: 1000 }
+        records: { type: array, maxItems: 200, items: { $ref: '#/components/schemas/TemplateRecord' } }
+    Template:
+      type: object
+      required: [id, name, records, created_at, updated_at]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        description: { type: string }
+        records: { type: array, items: { $ref: '#/components/schemas/TemplateRecord' } }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    TemplateList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Template' } }
+    SupermasterInput:
+      type: object
+      additionalProperties: false
+      required: [ip, nameserver]
+      properties:
+        ip: { type: string, minLength: 2, maxLength: 64 }
+        nameserver: { type: string, minLength: 1, maxLength: 254 }
+    Supermaster:
+      type: object
+      required: [id, ip, nameserver, created_at]
+      properties:
+        id: { type: string }
+        ip: { type: string }
+        nameserver: { type: string }
+        created_by: { type: string }
+        created_at: { type: string, format: date-time }
+    SupermasterList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Supermaster' } }
+    RecursorSettings:
+      type: object
+      additionalProperties: false
+      required: [listen_addresses, port, allowed_networks, upstream_resolvers, dnssec_validation]
+      properties:
+        listen_addresses: { type: array, minItems: 1, maxItems: 32, items: { type: string, maxLength: 64 } }
+        port: { type: integer, minimum: 1, maximum: 65535 }
+        allowed_networks: { type: array, maxItems: 32, items: { type: string, maxLength: 64 } }
+        upstream_resolvers: { type: array, maxItems: 32, items: { type: string, maxLength: 64 } }
+        dnssec_validation: { type: string, enum: ['off', process, validate] }
+        allow_open_resolver: { type: boolean }
+    AuthoritativeSettings:
+      type: object
+      additionalProperties: false
+      required: [listen_addresses, port, transfer_peers]
+      properties:
+        listen_addresses: { type: array, minItems: 1, maxItems: 32, items: { type: string, maxLength: 64 } }
+        port: { type: integer, minimum: 1, maximum: 65535 }
+        transfer_peers: { type: array, maxItems: 32, items: { type: string, maxLength: 64 } }
+    ServerConfigInput:
+      type: object
+      additionalProperties: false
+      required: [recursor, authoritative]
+      properties:
+        recursor: { $ref: '#/components/schemas/RecursorSettings' }
+        authoritative: { $ref: '#/components/schemas/AuthoritativeSettings' }
+    ServerConfig:
+      type: object
+      required: [recursor, authoritative, defaults, restarter]
+      properties:
+        recursor: { $ref: '#/components/schemas/RecursorSettings' }
+        authoritative: { $ref: '#/components/schemas/AuthoritativeSettings' }
+        defaults: { type: boolean, description: 'true when nothing was saved yet' }
+        restarter:
+          type: object
+          required: [enabled, containers]
+          properties:
+            enabled: { type: boolean }
+            containers:
+              type: object
+              properties:
+                auth: { type: string }
+                recursor: { type: string }
+    ConfigResult:
+      type: object
+      required: [recursor, authoritative, changed, restarted, restart_required, errors]
+      properties:
+        recursor: { $ref: '#/components/schemas/RecursorSettings' }
+        authoritative: { $ref: '#/components/schemas/AuthoritativeSettings' }
+        changed: { type: array, items: { type: string, enum: [recursor, authoritative] } }
+        restarted: { type: array, items: { type: string, description: 'container name' } }
+        restart_required: { type: array, items: { type: string } }
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              server: { type: string, enum: [recursor, authoritative] }
+              reason: { type: string }
+    Dashboard:
+      type: object
+      required: [available, window]
+      properties:
+        available: { type: boolean }
+        window: { type: string, enum: [1h, 6h, 24h] }
+        step_seconds: { type: integer }
+        panels:
+          type: array
+          items:
+            type: object
+            required: [id, kind]
+            properties:
+              id: { type: string, description: 'fixed catalogue id' }
+              kind: { type: string, enum: [stat, series] }
+              unit: { type: string }
+              value: { type: number, description: 'stat panels; absent when there is no data' }
+              unavailable: { type: boolean, description: 'this panel''s queries failed (the others are unaffected)' }
+              series:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    labels: { type: object, additionalProperties: { type: string } }
+                    points: { type: array, items: { type: array, items: { type: number } } }
+  responses:
+    Error:
+      description: refusal
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+paths:
+  # ---- Zones
+  /api/dns/v1/zones:
+    get:
+      operationId: listZones
+      x-freya-permission: 'zones:read'
+      parameters:
+        - { name: query, in: query, schema: { type: string, maxLength: 254 } }
+        - { name: kind, in: query, schema: { $ref: '#/components/schemas/ZoneKind' } }
+        - { name: origin, in: query, schema: { $ref: '#/components/schemas/ZoneOrigin' } }
+        - { $ref: '#/components/parameters/page' }
+        - { $ref: '#/components/parameters/pageSize' }
+      responses:
+        '200': { description: 'zones (name order)', content: { application/json: { schema: { $ref: '#/components/schemas/ZonePage' } } } }
+        default: { $ref: '#/components/responses/Error' }
+    post:
+      operationId: createZone
+      description: >-
+        Creates the zone in PowerDNS then locally (compensated on local
+        failure). duplicate when the name is taken, overlaps another tenant's
+        zone or already exists in PowerDNS (the owner is never revealed).
+      x-freya-permission: 'zones:manage'
+      parameters: [{ $ref: '#/components/parameters/csrf' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ZoneCreate' } } } }
+      responses:
+        '201': { description: created, content: { application/json: { schema: { $ref: '#/components/schemas/Zone' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /api/dns/v1/zones/{id}:
+    get:
+      operationId: getZone
+      x-freya-permission: 'zones:read'
+      parameters: [{ $ref: '#/components/parameters/id' }]
+      responses:
+        '200': { description: 'zone + serials from PowerDNS', content: { application/json: { schema: { $ref: '#/components/schemas/ZoneDetail' } } } }
+        default: { $ref: '#/components/responses/Error' }
+    put:
+      operationId: updateZone
+      x-freya-permission: 'zones:manage'
+      parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ZoneUpdate' } } } }
+      responses:
+        '200': { description: updated, content: { application/json: { schema: { $ref: '#/components/schemas/Zone' } } } }
+        default: { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: deleteZone
+      x-freya-permission: 'zones:manage'
+      parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }]
+      responses:
+        '204': { description: 'deleted from PowerDNS, the resolver forward and locally' }
+        default: { $ref: '#/components/responses/Error' }
+  /api/dns/v1/zones/{id}/export:
+    get:
+      operationId: exportZone
+      x-freya-permission: 'zones:manage'
+      x-freya-timeout-seconds: 60
+      parameters: [{ $ref: '#/components/parameters/id' }]
+      responses:
+        '200': { description: 'BIND zone text', content: { application/json: { schema: { $ref: '#/components/schemas/ZoneExport' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /api/dns/v1/zones/{id}/notify:
+    post:
+      operationId: notifyZone
+      description: master/producer zones only; any other kind is invalid_kind.
+      x-freya-permission: 'zones:manage'
+      parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }]
+      responses:
+        '202': { description: 'NOTIFY queued by PowerDNS' }
+        default: { $ref: '#/components/responses/Error' }
+  # ---- Records
+  /api/dns/v1/zones/{id}/records:
+    get:
+      operationId: listRecords
+      x-freya-permission: 'zones:read'
+      parameters:
+        - { $ref: '#/components/parameters/id' }
+        - { name: type, in: query, schema: { type: string, maxLength: 10 } }
+        - { name: query, in: query, schema: { type: string, maxLength: 254 } }
+        - { $ref: '#/components/parameters/page' }
+        - { $ref: '#/components/parameters/recordPageSize' }
+      responses:
+        '200': { description: 'record sets (name, type order); SOA read_only', content: { application/json: { schema: { $ref: '#/components/schemas/RecordPage' } } } }
+        default: { $ref: '#/components/responses/Error' }
+    post:
+      operationId: upsertRecordSet
+      description: REPLACE of (name, type) with all values.
+      x-freya-permission: 'zones:manage'
+      parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/RecordSetInput' } } } }
+      responses:
+        '200': { description: 'record set written', content: { application/json: { schema: { $ref: '#/components/schemas/RecordSet' } } } }
+        default: { $ref: '#/components/responses/Error' }
+    put:
+      operationId: updateRecordSet
+      description: keyed by the original (name, type); a rename is REPLACE new + DELETE old in one PATCH.
+      x-freya-permission: 'zones:manage'
+      parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/RecordUpdate' } } } }
+      responses:
+        '200': { description: 'record set written', content: { application/json: { schema: { $ref: '#/components/schemas/RecordSet' } } } }
+        default: { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: deleteRecordSet
+      x-freya-permission: 'zones:manage'
+      parameters:
+        - { $ref: '#/components/parameters/csrf' }
+        - { $ref: '#/components/parameters/id' }
+        - { name: name, in: query, required: true, schema: { type: string, minLength: 1, maxLength: 254 } }
+        - { name: type, in: query, required: true, schema: { $ref: '#/components/schemas/EditableType' } }
+      responses:
+        '204': { description: deleted }
+        default: { $ref: '#/components/responses/Error' }
+  # ---- Templates
+  /api/dns/v1/templates:
+    get:
+      operationId: listTemplates
+      x-freya-permission: 'zones:read'
+      responses:
+        '200': { description: 'templates (name order)', content: { application/json: { schema: { $ref: '#/components/schemas/TemplateList' } } } }
+        default: { $ref: '#/components/responses/Error' }
+    post:
+      operationId: createTemplate
+      x-freya-permission: 'templates:manage'
+      parameters: [{ $ref: '#/components/parameters/csrf' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/TemplateInput' } } } }
+      responses:
+        '201': { description: created, content: { application/json: { schema: { $ref: '#/components/schemas/Template' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /api/dns/v1/templates/{id}:
+    get:
+      operationId: getTemplate
+      x-freya-permission: 'zones:read'
+      parameters: [{ $ref: '#/components/parameters/id' }]
+      responses:
+        '200': { description: template, content: { application/json: { schema: { $ref: '#/components/schemas/Template' } } } }
+        default: { $ref: '#/components/responses/Error' }
+    put:
+      operationId: updateTemplate
+      description: replaces the record list.
+      x-freya-permission: 'templates:manage'
+      parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/TemplateInput' } } } }
+      responses:
+        '200': { description: updated, content: { application/json: { schema: { $ref: '#/components/schemas/Template' } } } }
+        default: { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: deleteTemplate
+      x-freya-permission: 'templates:manage'
+      parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }]
+      responses:
+        '204': { description: 'deleted (zones created from it are kept)' }
+        default: { $ref: '#/components/responses/Error' }
+  # ---- Supermasters (create/delete also platform-admin; no update route)
+  /api/dns/v1/supermasters:
+    get:
+      operationId: listSupermasters
+      x-freya-permission: 'supermasters:manage'
+      responses:
+        '200': { description: "this tenant's supermasters", content: { application/json: { schema: { $ref: '#/components/schemas/SupermasterList' } } } }
+        default: { $ref: '#/components/responses/Error' }
+    post:
+      operationId: createSupermaster
+      description: platform-admin only; the PowerDNS account is forced to the tenant.
+      x-freya-permission: 'supermasters:manage'
+      parameters: [{ $ref: '#/components/parameters/csrf' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SupermasterInput' } } } }
+      responses:
+        '201': { description: created, content: { application/json: { schema: { $ref: '#/components/schemas/Supermaster' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /api/dns/v1/supermasters/{id}:
+    get:
+      operationId: getSupermaster
+      x-freya-permission: 'supermasters:manage'
+      parameters: [{ $ref: '#/components/parameters/id' }]
+      responses:
+        '200': { description: supermaster, content: { application/json: { schema: { $ref: '#/components/schemas/Supermaster' } } } }
+        default: { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: deleteSupermaster
+      description: platform-admin only.
+      x-freya-permission: 'supermasters:manage'
+      parameters: [{ $ref: '#/components/parameters/csrf' }, { $ref: '#/components/parameters/id' }]
+      responses:
+        '204': { description: deleted }
+        default: { $ref: '#/components/responses/Error' }
+  # ---- Server configuration (config:manage AND platform-admin)
+  /api/dns/v1/config:
+    get:
+      operationId: getServerConfig
+      x-freya-permission: 'config:manage'
+      responses:
+        '200': { description: 'current (or default) configuration', content: { application/json: { schema: { $ref: '#/components/schemas/ServerConfig' } } } }
+        default: { $ref: '#/components/responses/Error' }
+    put:
+      operationId: updateServerConfig
+      description: >-
+        Validates, persists, renders the managed include files and restarts only
+        the container whose file changed (restart_required when the restarter is
+        disabled). A no-op save restarts nothing.
+      x-freya-permission: 'config:manage'
+      x-freya-timeout-seconds: 120
+      parameters: [{ $ref: '#/components/parameters/csrf' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ServerConfigInput' } } } }
+      responses:
+        '200': { description: 'saved and applied', content: { application/json: { schema: { $ref: '#/components/schemas/ConfigResult' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  # ---- Dashboard (curated panels; no query text accepted)
+  /api/dns/v1/dashboard:
+    get:
+      operationId: getDashboard
+      x-freya-permission: 'dashboard:read'
+      x-freya-timeout-seconds: 30
+      description: >-
+        Runs the fixed resolver/authoritative panel catalogue over the window
+        (step 60 s / 300 s / 900 s). No query text is accepted: any parameter
+        other than window is refused. available=false when no metrics endpoint
+        is configured.
+      parameters:
+        - { name: window, in: query, schema: { type: string, enum: [1h, 6h, 24h] } }
+      responses:
+        '200': { description: 'fixed panel set', content: { application/json: { schema: { $ref: '#/components/schemas/Dashboard' } } } }
+        default: { $ref: '#/components/responses/Error' }
+  # ---- Stream, backup, system
+  /api/dns/v1/stream:
+    get:
+      operationId: streamEvents
+      description: >-
+        Long-lived SSE stream of this tenant's dns.* events. The route timeout is
+        raised to the gateway's 5-minute maximum; the module closes the stream at
+        290 s and the client resumes with last_id.
+      x-freya-permission: 'zones:read'
+      x-freya-timeout-seconds: 300
+      parameters: [{ name: last_id, in: query, schema: { type: string, maxLength: 64 } }]
+      responses:
+        '200': { description: "SSE stream of this tenant's DNS events", content: { text/event-stream: { schema: { type: string } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /api/dns/v1/backup/export:
+    post:
+      operationId: exportBackup
+      description: >-
+        Schema-versioned export of zone metadata, templates and supermasters
+        (plus BIND text of each zone for reference). Never carries API keys.
+        Another tenant than the caller's is platform-admin only.
+      x-freya-permission: 'backup:manage'
+      x-freya-timeout-seconds: 120
+      parameters: [{ $ref: '#/components/parameters/csrf' }]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                tenant_id: { type: string, format: uuid, description: "platform-admin only when not the caller's tenant" }
+      responses:
+        '200': { description: 'tenant export (no keys)', content: { application/json: { schema: { type: object } } } }
+        default: { $ref: '#/components/responses/Error' }
+  /api/dns/v1/backup/import:
+    post:
+      operationId: importBackup
+      description: >-
+        Loads a backup into the caller's tenant (skip keeps existing rows,
+        overwrite rewrites them); zones are re-linked when present in PowerDNS
+        and not owned elsewhere, missing ones are reported. tenant_id other than
+        the caller's or full is platform-admin only.
+      x-freya-permission: 'backup:manage'
+      x-freya-max-body-bytes: 67108864
+      x-freya-timeout-seconds: 300
+      parameters: [{ $ref: '#/components/parameters/csrf' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [backup]
+              additionalProperties: false
+              properties:
+                mode: { type: string, enum: [skip, overwrite] }
+                tenant_id: { type: string, format: uuid }
+                full: { type: boolean }
+                backup: { type: object }
+      responses:
+        '200':
+          description: 'import summary'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tenant_id: { type: string }
+                  mode: { type: string }
+                  imported: { type: object, additionalProperties: { type: integer } }
+                  skipped: { type: object, additionalProperties: { type: integer } }
+                  missing_in_pdns: { type: array, items: { type: string } }
+        default: { $ref: '#/components/responses/Error' }
+  /api/dns/v1/health:
+    get:
+      operationId: health
+      x-freya-public: true
+      responses:
+        '200': { description: 'liveness + component status', content: { application/json: { schema: { type: object } } } }
