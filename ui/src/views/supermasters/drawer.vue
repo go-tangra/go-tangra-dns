@@ -2,8 +2,8 @@
 // New supermaster: a trusted primary (IP + nameserver) allowed to
 // auto-provision secondary zones on the shared DNS server. Platform
 // administrators only; the account is always the current tenant.
-import { UiRecordDrawer, UiAlert } from '@freya/ui'
-import { zodToFields } from '@freya/ui/forms'
+import { UiRecordDrawer, UiAlert } from '@go-tangra/ui'
+import { zodToFields } from '@go-tangra/ui/forms'
 import { useSupermasters } from '@/stores/supermasters'
 import { supermasterSchema, type SupermasterFormInput } from '@/schemas'
 import type { Supermaster } from '@/api/types'

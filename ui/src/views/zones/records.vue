@@ -8,7 +8,7 @@
 // next IPAM change).
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { UiPage, UiAlert, UiCard, UiInput, UiSelect, UiNumberInput, UiCheckbox, UiButton, UiBadge, UiDataTable, UiPagination, useConfirm, type Column, type SelectOption } from '@freya/ui'
+import { UiPage, UiAlert, UiCard, UiInput, UiSelect, UiNumberInput, UiCheckbox, UiButton, UiBadge, UiDataTable, UiPagination, useConfirm, type Column, type SelectOption } from '@go-tangra/ui'
 import { useZones } from '@/stores/zones'
 import { useRecords } from '@/stores/records'
 import { recordSetSchema, relativeName, RECORD_HINTS, RECORD_TYPES, TTL_PRESETS, type RecordType } from '@/schemas'

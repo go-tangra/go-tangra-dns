@@ -4,7 +4,7 @@
 // here — the queries are a server-side catalogue. Without a metrics endpoint
 // a notice replaces the panels.
 import { computed, onMounted, onUnmounted, watch } from 'vue'
-import { UiPage, UiAlert, UiCard, UiButton, UiTabs, UiStatGrid, UiStatTile, UiSkeleton, UiEmptyState, type TabItem } from '@freya/ui'
+import { UiPage, UiAlert, UiCard, UiButton, UiTabs, UiStatGrid, UiStatTile, UiSkeleton, UiEmptyState, type TabItem } from '@go-tangra/ui'
 import { useDashboard } from '@/stores/dashboard'
 import type { DashboardPanel, DashboardWindow } from '@/api/types'
 import SeriesChart from '@/components/SeriesChart.vue'

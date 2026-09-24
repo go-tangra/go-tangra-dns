@@ -4,7 +4,7 @@
 import { computed, inject, onMounted, ref } from 'vue'
 import { ABILITY_TOKEN } from '@casl/vue'
 import type { AnyAbility } from '@casl/ability'
-import { UiPage, UiAlert, UiCard, UiButton, UiDataTable, type Column } from '@freya/ui'
+import { UiPage, UiAlert, UiCard, UiButton, UiDataTable, type Column } from '@go-tangra/ui'
 import { useTemplates } from '@/stores/templates'
 import type { Template } from '@/api/types'
 import TemplateDrawer from './drawer.vue'

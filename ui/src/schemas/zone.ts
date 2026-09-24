@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { optionalString } from '@freya/ui/forms'
+import { optionalString } from '@go-tangra/ui/forms'
 
 export const ZONE_KINDS = ['native', 'master', 'slave', 'producer', 'consumer'] as const
 export type ZoneKindValue = (typeof ZONE_KINDS)[number]

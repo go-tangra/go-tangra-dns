@@ -6,8 +6,8 @@
 // confirmation.
 import { computed, ref, shallowRef, watch } from 'vue'
 import type { z } from 'zod'
-import { UiDrawer, UiButton, UiAlert, UiBadge, UiKeyValueTable, UiRecordForm, UiToolbar, UiTabs, UiCopyButton, UiSkeleton, useConfirm, type KeyValue, type TabItem } from '@freya/ui'
-import { zodToFields, type ZodForm } from '@freya/ui/forms'
+import { UiDrawer, UiButton, UiAlert, UiBadge, UiKeyValueTable, UiRecordForm, UiToolbar, UiTabs, UiCopyButton, UiSkeleton, useConfirm, type KeyValue, type TabItem } from '@go-tangra/ui'
+import { zodToFields, type ZodForm } from '@go-tangra/ui/forms'
 import { useRouter } from 'vue-router'
 import { useZones } from '@/stores/zones'
 import { zoneUpdateSchema, ZONE_KINDS, type ZoneUpdateFormInput } from '@/schemas'

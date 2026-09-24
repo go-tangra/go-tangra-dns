@@ -4,7 +4,7 @@
 // replaced by the zone name when a zone is created from the template; the
 // server re-validates every row. Server refusals point at the offending row.
 import { computed, reactive, ref, watch } from 'vue'
-import { UiDrawer, UiAlert, UiButton, UiInput, UiTextarea, UiSelect, UiNumberInput, useConfirm, type SelectOption } from '@freya/ui'
+import { UiDrawer, UiAlert, UiButton, UiInput, UiTextarea, UiSelect, UiNumberInput, useConfirm, type SelectOption } from '@go-tangra/ui'
 import { useTemplates } from '@/stores/templates'
 import { templateSchema, expandName, hasPriority, MAX_TEMPLATE_RECORDS, RECORD_HINTS, RECORD_TYPES, ZONE_PLACEHOLDER, type RecordType } from '@/schemas'
 import type { Template } from '@/api/types'

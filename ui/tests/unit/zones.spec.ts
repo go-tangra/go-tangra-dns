@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
-import { useConfirm } from '@freya/ui'
+import { useConfirm } from '@go-tangra/ui'
 import Zones from '@/views/zones/index.vue'
 import { zoneSchema, zoneUpdateSchema, zoneNameOk, needsMasters } from '@/schemas'
 import { clickButton, fetchMock, makeRouter, reply, select, type } from './helpers'

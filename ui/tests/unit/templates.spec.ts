@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
-import { useConfirm } from '@freya/ui'
+import { useConfirm } from '@go-tangra/ui'
 import Templates from '@/views/templates/index.vue'
 import { templateSchema, expandName, hasPriority } from '@/schemas'
 import { abilities, fetchMock, makeRouter, reply, select, type } from './helpers'

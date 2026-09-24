@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
-import { useConfirm } from '@freya/ui'
+import { useConfirm } from '@go-tangra/ui'
 import Supermasters from '@/views/supermasters/index.vue'
 import { supermasterSchema, ipOk } from '@/schemas'
 import { abilities, clickButton, fetchMock, makeRouter, reply, type } from './helpers'

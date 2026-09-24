@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
-import { useConfirm } from '@freya/ui'
+import { useConfirm } from '@go-tangra/ui'
 import Records from '@/views/zones/records.vue'
 import { checkContent, recordSetSchema, relativeName, RECORD_HINTS, RECORD_TYPES } from '@/schemas'
 import { fetchMock, makeRouter, reply, select, type, type Call } from './helpers'

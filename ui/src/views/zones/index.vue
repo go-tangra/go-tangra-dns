@@ -5,8 +5,8 @@
 // from a template) that closes on save. Zones the IPAM sync created carry an
 // "IPAM" badge.
 import { computed, onMounted, ref, watch } from 'vue'
-import { UiPage, UiAlert, UiCard, UiInput, UiSelect, UiButton, UiBadge, UiDataTable, UiPagination, UiStatusChip, UiRecordDrawer, type Column, type SelectOption } from '@freya/ui'
-import { zodToFields } from '@freya/ui/forms'
+import { UiPage, UiAlert, UiCard, UiInput, UiSelect, UiButton, UiBadge, UiDataTable, UiPagination, UiStatusChip, UiRecordDrawer, type Column, type SelectOption } from '@go-tangra/ui'
+import { zodToFields } from '@go-tangra/ui/forms'
 import { useZones } from '@/stores/zones'
 import { useTemplates } from '@/stores/templates'
 import { zoneSchema, ZONE_KINDS, type ZoneFormInput } from '@/schemas'

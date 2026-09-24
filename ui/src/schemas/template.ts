@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { optionalString } from '@freya/ui/forms'
+import { optionalString } from '@go-tangra/ui/forms'
 import { RECORD_TYPES, TTL_MAX, TTL_MIN } from './record'
 import { zoneNameOk } from './zone'
 

@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { optionalString } from '@freya/ui/forms'
+import { optionalString } from '@go-tangra/ui/forms'
 
 export const RECORD_TYPES = ['A', 'AAAA', 'CNAME', 'MX', 'NS', 'PTR', 'SRV', 'TXT', 'CAA', 'DS', 'DNSKEY', 'TLSA', 'SSHFP', 'SPF', 'NAPTR'] as const
 export type RecordType = (typeof RECORD_TYPES)[number]

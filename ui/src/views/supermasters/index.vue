@@ -6,7 +6,7 @@
 import { computed, inject, onMounted, ref } from 'vue'
 import { ABILITY_TOKEN } from '@casl/vue'
 import type { AnyAbility } from '@casl/ability'
-import { UiPage, UiAlert, UiCard, UiButton, UiDataTable, useConfirm, type Column } from '@freya/ui'
+import { UiPage, UiAlert, UiCard, UiButton, UiDataTable, useConfirm, type Column } from '@go-tangra/ui'
 import { useSupermasters } from '@/stores/supermasters'
 import type { Supermaster } from '@/api/types'
 import { describe } from '@/api/client'

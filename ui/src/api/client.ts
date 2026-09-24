@@ -1,6 +1,6 @@
 // The DNS API through the gateway: the kit client bound to this module's base.
-import { createApi, ApiError, csrfToken, describe, type Method, type RequestOptions } from '@freya/ui/api'
-import { registerReasons } from '@freya/ui/forms'
+import { createApi, ApiError, csrfToken, describe, type Method, type RequestOptions } from '@go-tangra/ui/api'
+import { registerReasons } from '@go-tangra/ui/forms'
 import type { paths } from './schema.d'
 
 export { ApiError, csrfToken, describe }
