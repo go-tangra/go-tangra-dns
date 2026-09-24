@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { base, signIn } from '../../../../gateway/shell/tests/e2e/helpers'
+import { base, signIn } from './helpers'
 
 // Quickstart flow for the DNS remote at the three reference widths:
 // zones list → new zone drawer → zone drawer → records (inline editor: add,
