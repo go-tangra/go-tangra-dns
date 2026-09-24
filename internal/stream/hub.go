@@ -331,16 +331,18 @@ func (h *Hub) dispatch(t *tenantSub, e Entry) {
 
 // push queues an event unless it was already delivered (replay overlap) or
 // the buffer is full; returns false when the subscriber stalled.
+//
+// The send happens under s.mu (it never blocks), so Close cannot close the
+// channel between the closed check and the send.
 func (s *Subscription) push(ev Event) bool {
 	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s.closed || (ev.ID != "" && s.last != "" && !Less(s.last, ev.ID)) {
-		s.mu.Unlock()
 		return true
 	}
 	if ev.ID != "" {
 		s.last = ev.ID
 	}
-	s.mu.Unlock()
 	select {
 	case s.ch <- ev:
 		return true
@@ -359,6 +361,7 @@ func (s *Subscription) Close() {
 		h.mu.Lock()
 		s.mu.Lock()
 		s.closed = true
+		close(s.ch)
 		s.mu.Unlock()
 		if t, ok := h.tenants[s.tenant]; ok {
 			delete(t.conns, s)
@@ -372,6 +375,5 @@ func (s *Subscription) Close() {
 			}
 		}
 		h.mu.Unlock()
-		close(s.ch)
 	})
 }
