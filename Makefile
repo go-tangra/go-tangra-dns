@@ -46,7 +46,7 @@ build:
 build-ui: ui-build
 	$(GO) build -tags "ui" -o bin/dnssvc ./cmd/dnssvc
 
-# Build the container image (context is the repo root so replace directives resolve).
+# Build the container image; NODE_AUTH_TOKEN (read:packages) installs @go-tangra/ui.
 image:
-	docker build -f Dockerfile -t dnssvc ../..
+	DOCKER_BUILDKIT=1 docker buildx build --secret id=npm_token,env=NODE_AUTH_TOKEN -t go-tangra-dns:dev .
 
