@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -269,10 +270,12 @@ func TestValidateAndPublish(t *testing.T) {
 
 func TestSubscribeFanoutReplayAndLimits(t *testing.T) {
 	m := NewMemory()
+	var clockMu sync.Mutex
 	now := time.Now()
-	m.Now = func() time.Time { return now }
+	clock := func() time.Time { clockMu.Lock(); defer clockMu.Unlock(); return now }
+	m.Now = clock
 	h := NewHub(m, Config{StreamsPerUser: 2, StreamsPerTenant: 3, ReplayWindow: time.Minute, ReadBlock: 20 * time.Millisecond, TrimInterval: 30 * time.Millisecond, RetryDelay: 10 * time.Millisecond}, nil)
-	h.SetClock(func() time.Time { return now })
+	h.SetClock(clock)
 	ctx := context.Background()
 	a, err := h.Subscribe(ctx, tA, uA, "")
 	if err != nil {
@@ -342,7 +345,9 @@ func TestSubscribeFanoutReplayAndLimits(t *testing.T) {
 	c2.Close() // idempotent
 	// The trim ticker drops entries older than the window.
 	before := m.Len(Key(tA))
+	clockMu.Lock()
 	now = now.Add(2 * time.Minute)
+	clockMu.Unlock()
 	waitFor(t, func() bool { return m.Len(Key(tA)) < before })
 	// A stalled reader is dropped once its buffer fills.
 	for i := 0; i < connBuffer+5; i++ {
