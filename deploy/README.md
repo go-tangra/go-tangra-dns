@@ -25,7 +25,7 @@ token); module gRPC surface `dns.v1` (`Zones` read-only for any module,
 | KEK | 32-byte key (`kek.source: file|env`, `deploy/kek.dev` for development only) |
 | PowerDNS | `pdns.api_url` (Authoritative 4.9 API) + `recursor.api_url` (Recursor 5.x API), keys by reference |
 | Mesh identity | enrolls with lcm through the gateway edge (`mesh_enroll`), stores its SVID in `/state` |
-| Gateway | registers its manifest (routes, permissions, abilities, nav) on a lease; seeds the roles `dns admin` / `dns viewer` into auth |
+| Gateway | registers its manifest (routes, permissions, abilities, nav) on a lease; registers the module roles `administrator` / `viewer` (DNS administrator/viewer) and built-in grants with auth |
 
 Every `dns_*` table carries `tenant_id` under **row-level security**. The only
 cross-tenant reads are `dns_zone_conflict(name, tenant)` (SECURITY DEFINER,
