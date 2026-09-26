@@ -1,21 +1,20 @@
 // Package dnsmanifest declares what the DNS module registers with the
 // application gateway: routes derived from the embedded OpenAPI document, the
 // API permissions, the CASL abilities and the navigation entries; plus the
-// built-in role grants it seeds with the auth service. The dns.v1 gRPC surface
-// is service-to-service and is not proxied by the gateway.
+// module roles and built-in role grants it registers with the auth service.
+// The dns.v1 gRPC surface is service-to-service and is not proxied by the
+// gateway.
 package dnsmanifest
 
 import (
-	"context"
 	"fmt"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
-	"google.golang.org/grpc"
 
-	authv1 "github.com/go-tangra/go-tangra-auth/sdk/v4/api/proto/auth/v1"
+	"github.com/go-tangra/go-tangra-auth/sdk/v4/pkg/authclient"
 	"github.com/go-tangra/go-tangra-dns/v4/api/openapi"
 	"github.com/go-tangra/go-tangra-portal/sdk/v4/pkg/gatewayclient"
 )
@@ -61,20 +60,37 @@ func TenantPermissions() []string {
 	return out
 }
 
-// Module roles (research D16): what each seeded role may do.
-var Roles = map[string][]string{
-	"dns admin":  TenantPermissions(),
-	"dns viewer": {"zones:read", "dashboard:read"},
+// Permission sets of the module roles (research D16).
+var (
+	adminPermissions  = TenantPermissions()
+	viewerPermissions = []string{"zones:read", "dashboard:read"}
+)
+
+// Roles is the module's role set (feature 019): ready-made roles auth offers in
+// every tenant, locked there (administrators assign or clone them). No role
+// holds config:manage (platform administrators only).
+var Roles = []authclient.ModuleRole{
+	{
+		Slug: "administrator", DisplayName: DisplayName + " administrator",
+		Description: "Manage zones, record sets, templates, supermasters and backups, and read the dashboard",
+		Permissions: adminPermissions,
+	},
+	{
+		Slug: "viewer", DisplayName: DisplayName + " viewer",
+		Description: "Read zones, record sets, templates and the dashboard",
+		Permissions: viewerPermissions,
+	},
 }
 
-// Grants maps the platform's built-in role slugs to the module roles: owners
-// and admins are DNS admins; operators, members and auditors are DNS viewers.
+// Grants maps the platform's built-in role slugs to the module role
+// permission sets: owners and admins hold the administrator set; operators,
+// members and auditors the viewer set.
 var Grants = map[string][]string{
-	"owner":    Roles["dns admin"],
-	"admin":    Roles["dns admin"],
-	"operator": Roles["dns viewer"],
-	"member":   Roles["dns viewer"],
-	"auditor":  Roles["dns viewer"],
+	"owner":    adminPermissions,
+	"admin":    adminPermissions,
+	"operator": viewerPermissions,
+	"member":   viewerPermissions,
+	"auditor":  viewerPermissions,
 }
 
 // Methods proxied by the gateway: none (dns gRPC is service to service).
@@ -183,27 +199,15 @@ func Manifest() (gatewayclient.Manifest, error) {
 	}, nil
 }
 
-// BuiltinRoles lists the built-in role slugs seeded, in a stable order.
+// BuiltinRoles lists the built-in role slugs granted, in a stable order.
 var BuiltinRoles = []string{"owner", "admin", "member", "auditor", "operator"}
 
-// SeedRequest builds the auth registration request: every module permission
-// plus the built-in role grants.
-func SeedRequest() *authv1.RegisterPermissionsRequest {
-	req := &authv1.RegisterPermissionsRequest{}
+// Registration is what the module registers with auth: every module
+// permission, the module roles and the built-in role grants.
+func Registration() authclient.Registration {
+	reg := authclient.Registration{Module: Module, DisplayName: DisplayName, Roles: Roles, BuiltinGrants: Grants}
 	for _, p := range Permissions {
-		req.Permissions = append(req.Permissions, &authv1.PermissionDef{Resource: p.Resource, Action: p.Action, Description: p.Description})
+		reg.Permissions = append(reg.Permissions, authclient.Permission{Resource: p.Resource, Action: p.Action, Description: p.Description})
 	}
-	for _, slug := range BuiltinRoles {
-		req.BuiltinGrants = append(req.BuiltinGrants, &authv1.BuiltinGrant{Role: slug, Permissions: Grants[slug]})
-	}
-	return req
-}
-
-// SeedPermissions registers the module's permissions with the auth service and
-// grants them to the built-in roles (idempotent).
-func SeedPermissions(ctx context.Context, cc grpc.ClientConnInterface) error {
-	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
-	defer cancel()
-	_, err := authv1.NewAuthorizationClient(cc).RegisterPermissions(ctx, SeedRequest())
-	return err
+	return reg
 }

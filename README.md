@@ -72,7 +72,7 @@ Other services call it through `pkg/dnsclient` and the `dns.v1` protos
 | `internal/backup`, `internal/dashboard`, `internal/metrics`, `internal/audit` | backup export/import, dashboard, metrics, audit |
 | `internal/httpapi`, `internal/grpcapi` | browser and service APIs |
 | `internal/app`, `cmd/dnssvc` | wiring and the service binary (serve, `bootstrap`, `version`) |
-| `pkg/dnsmanifest` | gateway manifest and built-in role grants |
+| `pkg/dnsmanifest` | gateway manifest, module roles and built-in role grants |
 | `pkg/dnsclient` | Go client other services use |
 | `testdata` | PowerDNS API, record and IPAM event fixtures |
 | `tests/integration` | real TimescaleDB, Valkey and PowerDNS (testcontainers); `challengesrv` for lcm's suite |
@@ -157,8 +157,23 @@ service does not read them at run time (the platform stack carries its own copy)
 `zones:read/manage`, `templates:manage`, `supermasters:manage`, `dashboard:read`,
 `backup:manage`, and `config:manage` (platform administrators only). The gateway
 enforces the per-route permission from the manifest; the module then checks the
-tenant scope. The module seeds the roles `dns admin` and `dns viewer` and the
-built-in role grants (`pkg/dnsmanifest.Grants`).
+tenant scope.
+
+## Roles
+
+The module registers its permissions with auth at start and every five
+minutes, together with ready-made module roles that auth offers in every
+tenant (locked; administrators assign them or clone them into custom roles):
+
+| Role | Display name | Permissions |
+|---|---|---|
+| `administrator` | DNS administrator | every tenant permission: `zones:read/manage`, `templates:manage`, `supermasters:manage`, `dashboard:read`, `backup:manage` (not `config:manage`) |
+| `viewer` | DNS viewer | `zones:read`, `dashboard:read` |
+
+Built-in role grants (scoped to the DNS module by auth,
+`pkg/dnsmanifest.Grants`): `owner` and `admin` hold the administrator set;
+`operator`, `member` and `auditor` the viewer set. No tenant role holds
+`config:manage`.
 
 ## Versioning
 
