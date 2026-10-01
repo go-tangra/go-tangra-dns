@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-tangra/go-tangra/v4/listquery"
+
 	"github.com/go-tangra/go-tangra-dns/v4/internal/audit"
 	"github.com/go-tangra/go-tangra-dns/v4/internal/authz"
 	"github.com/go-tangra/go-tangra-dns/v4/internal/events"
@@ -437,27 +439,27 @@ func TestGetListAndOwnership(t *testing.T) {
 	}
 	h.pd.SetDown(false)
 
-	items, total, err := h.svc.List(ctx, h.subA, store.ZoneFilter{})
+	items, total, _, err := h.svc.List(ctx, h.subA, store.ZoneFilter{}, zreq(1, 0))
 	if err != nil || total != 3 || len(items) != 3 || items[0].Name != "alpha.test." {
 		t.Fatalf("list = %+v %d %v", items, total, err)
 	}
-	items, total, _ = h.svc.List(ctx, h.subA, store.ZoneFilter{Query: "ET", PageSize: 1})
+	items, total, _, _ = h.svc.List(ctx, h.subA, store.ZoneFilter{Query: "ET"}, zreq(1, 1))
 	if total != 1 || items[0].Name != "beta.test." {
 		t.Fatalf("query = %+v %d", items, total)
 	}
-	items, total, _ = h.svc.List(ctx, h.subA, store.ZoneFilter{Kind: store.KindMaster})
+	items, total, _, _ = h.svc.List(ctx, h.subA, store.ZoneFilter{Kind: store.KindMaster}, zreq(1, 0))
 	if total != 1 || items[0].Name != "gamma.test." {
 		t.Fatalf("kind = %+v %d", items, total)
 	}
-	items, total, _ = h.svc.List(ctx, h.subA, store.ZoneFilter{Page: 2, PageSize: 2})
+	items, total, _, _ = h.svc.List(ctx, h.subA, store.ZoneFilter{}, zreq(2, 2))
 	if total != 3 || len(items) != 1 {
 		t.Fatalf("paging = %+v %d", items, total)
 	}
 	h.st.FailNext("ListZones")
-	if _, _, err := h.svc.List(ctx, h.subA, store.ZoneFilter{}); err == nil {
+	if _, _, _, err := h.svc.List(ctx, h.subA, store.ZoneFilter{}, zreq(1, 0)); err == nil {
 		t.Fatal("list error swallowed")
 	}
-	if _, _, err := h.svc.List(ctx, authz.Subjects{}, store.ZoneFilter{}); !errors.Is(err, authz.ErrForbidden) {
+	if _, _, _, err := h.svc.List(ctx, authz.Subjects{}, store.ZoneFilter{}, zreq(1, 0)); !errors.Is(err, authz.ErrForbidden) {
 		t.Fatal("list without tenant")
 	}
 	// Owned / ByName / FindForName (module callers)
@@ -652,10 +654,15 @@ func TestCallMetricsAndResults(t *testing.T) {
 	}
 	// a Checker, when wired, is consulted for users too
 	chk := New(Deps{Store: memstore.New(), PDNS: pdns.NewFake(), Checker: authz.Static{userA: {authz.ZonesRead}}})
-	if _, _, err := chk.List(context.Background(), h.subA, store.ZoneFilter{}); err != nil {
+	if _, _, _, err := chk.List(context.Background(), h.subA, store.ZoneFilter{}, zreq(1, 0)); err != nil {
 		t.Fatalf("checker read = %v", err)
 	}
 	if _, err := chk.Create(context.Background(), h.subA, CreateInput{Name: "x.test", Kind: "native"}); !errors.Is(err, authz.ErrForbidden) {
 		t.Fatalf("checker manage = %v", err)
 	}
+}
+
+func zreq(page, size int) listquery.Request {
+	r, _ := listquery.New(page, size, "", "", store.ZoneList)
+	return r
 }

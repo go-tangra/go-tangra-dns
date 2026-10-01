@@ -8,6 +8,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/go-tangra/go-tangra/v4/listquery"
+
 	dnsv1 "github.com/go-tangra/go-tangra-dns/v4/api/proto/dns/v1"
 	"github.com/go-tangra/go-tangra-dns/v4/internal/store"
 	"github.com/go-tangra/go-tangra-dns/v4/internal/zones"
@@ -45,15 +47,29 @@ func (s *ZonesServer) List(ctx context.Context, req *dnsv1.ListZonesRequest) (*d
 	if err != nil {
 		return nil, err
 	}
-	items, total, err := s.d.Zones.List(ctx, subj, store.ZoneFilter{Query: req.GetQuery(), Page: int(req.GetPage()), PageSize: int(req.GetPageSize())})
+	want := pageRequest(req.GetPage(), req.GetPageSize())
+	items, total, got, err := s.d.Zones.List(ctx, subj, store.ZoneFilter{Query: req.GetQuery()}, want)
 	if err != nil {
 		return nil, zoneError(err)
 	}
-	out := &dnsv1.ListZonesResponse{Total: total}
+	if got.Page != want.Page { // beyond the last page: empty, as before (callers page until empty)
+		items = nil
+	}
+	out := &dnsv1.ListZonesResponse{Total: int64(total)}
 	for _, z := range items {
 		out.Items = append(out.Items, toProto(z))
 	}
 	return out, nil
+}
+
+// pageRequest keeps the RPC's lenient paging (a missing or non-positive page
+// is the first, a missing size the default, an oversized one the maximum) in
+// the module's name order.
+func pageRequest(page, size int32) listquery.Request {
+	p, n := max(int(page), 0), max(int(size), 0)
+	n = min(n, listquery.MaxPageSize)
+	req, _ := listquery.New(p, n, "", "", store.ZoneList) // always valid after the bounds above
+	return req
 }
 
 // Get returns one zone of the tenant by id or by name.

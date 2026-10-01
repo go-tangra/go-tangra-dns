@@ -149,6 +149,8 @@ func (s *Server) validate(next http.Handler) http.Handler {
 			var mbe *http.MaxBytesError
 			var pe *openapi3filter.ParseError
 			switch {
+			case listParam(err) != "":
+				WriteDetail(w, ErrValidation, map[string]any{"param": listParam(err)})
 			case errors.As(err, &mbe) || strings.Contains(err.Error(), "request body too large"):
 				WriteError(w, ErrBodyTooLarge.Status, ErrBodyTooLarge.Reason)
 			case errors.As(err, &pe):
@@ -160,6 +162,21 @@ func (s *Server) validate(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// listParam names the list-contract query parameter (page, page_size, sort,
+// order) a validation error is about, or "" — so a refused list request says
+// which parameter (never its value), as listquery.Parse does behind it.
+func listParam(err error) string {
+	var re *openapi3filter.RequestError
+	if !errors.As(err, &re) || re.Parameter == nil || re.Parameter.In != "query" {
+		return ""
+	}
+	switch re.Parameter.Name {
+	case "page", "page_size", "sort", "order":
+		return re.Parameter.Name
+	}
+	return ""
 }
 
 func extensionInt(v any) (int64, bool) {

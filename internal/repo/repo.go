@@ -11,6 +11,8 @@ import (
 	"errors"
 	"time"
 
+	"github.com/go-tangra/go-tangra/v4/listquery"
+
 	"github.com/go-tangra/go-tangra-dns/v4/internal/store"
 )
 
@@ -28,8 +30,9 @@ type Zones interface {
 	GetZone(ctx context.Context, tenantID, id string) (store.Zone, error)
 	// GetZoneByName resolves a canonical zone name within the tenant.
 	GetZoneByName(ctx context.Context, tenantID, name string) (store.Zone, error)
-	// ListZones returns one page (name order) plus the total match count.
-	ListZones(ctx context.Context, tenantID string, f store.ZoneFilter) ([]store.Zone, int64, error)
+	// ListZones returns one page in the order of req (store.ZoneList), the
+	// total match count and req clamped to the last page.
+	ListZones(ctx context.Context, tenantID string, f store.ZoneFilter, req listquery.Request) ([]store.Zone, int, listquery.Request, error)
 	// UpdateZone writes kind, masters, dnssec and description (and updated_at);
 	// the stored zone is returned.
 	UpdateZone(ctx context.Context, z store.Zone) (store.Zone, error)
@@ -52,8 +55,9 @@ type Templates interface {
 	// CreateTemplate inserts t; ErrConflict on (tenant, lower(name)).
 	CreateTemplate(ctx context.Context, t store.Template) error
 	GetTemplate(ctx context.Context, tenantID, id string) (store.Template, error)
-	// ListTemplates lists the tenant's templates by name.
-	ListTemplates(ctx context.Context, tenantID string) ([]store.Template, error)
+	// ListTemplates returns one page of the tenant's templates in the order of
+	// req (store.TemplateList), the total and req clamped to the last page.
+	ListTemplates(ctx context.Context, tenantID string, req listquery.Request) ([]store.Template, int, listquery.Request, error)
 	// UpdateTemplate writes name, description and records (replacing the list).
 	UpdateTemplate(ctx context.Context, t store.Template) (store.Template, error)
 	DeleteTemplate(ctx context.Context, tenantID, id string) error
@@ -65,8 +69,9 @@ type Supermasters interface {
 	// ANY tenant.
 	CreateSupermaster(ctx context.Context, s store.Supermaster) error
 	GetSupermaster(ctx context.Context, tenantID, id string) (store.Supermaster, error)
-	// ListSupermasters lists the tenant's rows by (ip, nameserver).
-	ListSupermasters(ctx context.Context, tenantID string) ([]store.Supermaster, error)
+	// ListSupermasters returns one page of the tenant's rows in the order of
+	// req (store.SupermasterList), the total and req clamped to the last page.
+	ListSupermasters(ctx context.Context, tenantID string, req listquery.Request) ([]store.Supermaster, int, listquery.Request, error)
 	DeleteSupermaster(ctx context.Context, tenantID, id string) error
 }
 

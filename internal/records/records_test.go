@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-tangra/go-tangra/v4/listquery"
+
 	"github.com/go-tangra/go-tangra-dns/v4/internal/audit"
 	"github.com/go-tangra/go-tangra-dns/v4/internal/authz"
 	"github.com/go-tangra/go-tangra-dns/v4/internal/events"
@@ -106,7 +108,7 @@ func TestUpsertAndList(t *testing.T) {
 		t.Fatalf("audit = %+v", e)
 	}
 
-	items, total, err := h.svc.List(ctx, h.subA, h.zone.ID, Filter{})
+	items, total, _, err := h.svc.List(ctx, h.subA, h.zone.ID, Filter{}, rq(1, 0, "", ""))
 	if err != nil || total != 8 || len(items) != 8 {
 		t.Fatalf("list = %d %d %v", len(items), total, err)
 	}
@@ -119,21 +121,22 @@ func TestUpsertAndList(t *testing.T) {
 			t.Fatalf("%s %s read-only", r.Name, r.Type)
 		}
 	}
-	items, total, _ = h.svc.List(ctx, h.subA, h.zone.ID, Filter{Type: "a"})
+	items, total, _, _ = h.svc.List(ctx, h.subA, h.zone.ID, Filter{Type: "a"}, rq(1, 0, "", ""))
 	if total != 2 || items[0].Name != "mail.example.test." {
 		t.Fatalf("type filter = %+v", items)
 	}
-	items, total, _ = h.svc.List(ctx, h.subA, h.zone.ID, Filter{Type: "A", Query: "WW"})
+	items, total, _, _ = h.svc.List(ctx, h.subA, h.zone.ID, Filter{Type: "A", Query: "WW"}, rq(1, 0, "", ""))
 	if total != 1 || items[0].Name != "www.example.test." {
 		t.Fatalf("search = %+v", items)
 	}
-	items, total, _ = h.svc.List(ctx, h.subA, h.zone.ID, Filter{Page: 2, PageSize: 3})
+	items, total, _, _ = h.svc.List(ctx, h.subA, h.zone.ID, Filter{}, rq(2, 3, "", ""))
 	if total != 8 || len(items) != 3 {
 		t.Fatalf("page = %d %d", len(items), total)
 	}
-	items, total, _ = h.svc.List(ctx, h.subA, h.zone.ID, Filter{Page: 9, PageSize: 3})
-	if total != 8 || len(items) != 0 || items == nil {
-		t.Fatalf("past the end = %v %d", items, total)
+	// past the end: the last page, reported as such
+	items, total, applied, _ := h.svc.List(ctx, h.subA, h.zone.ID, Filter{}, rq(9, 3, "", ""))
+	if total != 8 || len(items) != 2 || applied.Page != 3 {
+		t.Fatalf("past the end = %v %d page %d", items, total, applied.Page)
 	}
 }
 
@@ -142,7 +145,7 @@ func TestOwnershipBeforePowerDNS(t *testing.T) {
 	ctx := context.Background()
 	other := authz.User(tenantB, "someone", nil)
 	before := len(h.pd.CallLog())
-	if _, _, err := h.svc.List(ctx, other, h.zone.ID, Filter{}); !errors.Is(err, zones.ErrNotFound) {
+	if _, _, _, err := h.svc.List(ctx, other, h.zone.ID, Filter{}, rq(1, 0, "", "")); !errors.Is(err, zones.ErrNotFound) {
 		t.Fatalf("list = %v", err)
 	}
 	if _, err := h.svc.Upsert(ctx, other, h.zone.ID, in("x", "A", 300, "192.0.2.1")); !errors.Is(err, zones.ErrNotFound) {
@@ -252,7 +255,7 @@ func TestUpdateClearsComment(t *testing.T) {
 	if _, err := h.svc.Update(ctx, h.subA, h.zone.ID, Key{Name: "www", Type: "A"}, in("www", "A", 300, "192.0.2.1")); err != nil {
 		t.Fatal(err)
 	}
-	items, _, err := h.svc.List(ctx, h.subA, h.zone.ID, Filter{Type: "A"})
+	items, _, _, err := h.svc.List(ctx, h.subA, h.zone.ID, Filter{Type: "A"}, rq(1, 0, "", ""))
 	if err != nil || len(items) != 1 || items[0].Comment != "" {
 		t.Fatalf("comment not cleared: %+v %v", items, err)
 	}
@@ -285,7 +288,7 @@ func TestUpdateRenameAndDelete(t *testing.T) {
 	if patches != 1 {
 		t.Fatalf("rename used %d patches", patches)
 	}
-	items, _, _ := h.svc.List(ctx, h.subA, h.zone.ID, Filter{Query: "www"})
+	items, _, _, _ := h.svc.List(ctx, h.subA, h.zone.ID, Filter{Query: "www"}, rq(1, 0, "", ""))
 	if len(items) != 0 {
 		t.Fatalf("old name kept: %+v", items)
 	}
@@ -337,7 +340,7 @@ func TestPowerDNSFailuresAndKinds(t *testing.T) {
 	ctx := context.Background()
 	h.upsert(t, in("www", "A", 300, "192.0.2.1"))
 	h.pd.SetDown(true)
-	if _, _, err := h.svc.List(ctx, h.subA, h.zone.ID, Filter{}); !errors.Is(err, pdns.ErrUnavailable) {
+	if _, _, _, err := h.svc.List(ctx, h.subA, h.zone.ID, Filter{}, rq(1, 0, "", "")); !errors.Is(err, pdns.ErrUnavailable) {
 		t.Fatalf("list down = %v", err)
 	}
 	if _, err := h.svc.Upsert(ctx, h.subA, h.zone.ID, in("x", "A", 300, "192.0.2.1")); !errors.Is(err, pdns.ErrUnavailable) {
@@ -377,7 +380,7 @@ func TestPowerDNSFailuresAndKinds(t *testing.T) {
 		t.Fatalf("slave delete = %v", err)
 	}
 	// reads are allowed for the module view; the IPAM sync writes with source ipam
-	if _, _, err := h.svc.List(ctx, authz.Module(tenantA, "spiffe://example.org/svc/x"), h.zone.ID, Filter{}); err != nil {
+	if _, _, _, err := h.svc.List(ctx, authz.Module(tenantA, "spiffe://example.org/svc/x"), h.zone.ID, Filter{}, rq(1, 0, "", "")); err != nil {
 		t.Fatalf("module list = %v", err)
 	}
 	z, _ := h.zs.Owned(ctx, h.subA, h.zone.ID)
@@ -411,7 +414,7 @@ func TestPowerDNSFailuresAndKinds(t *testing.T) {
 func TestSort(t *testing.T) {
 	names := []RecordSet{{Name: "b.example.test.", Type: "A"}, {Name: "example.test.", Type: "NS"}, {Name: "a.b.example.test.", Type: "A"},
 		{Name: "example.test.", Type: "SOA"}, {Name: "example.test.", Type: "A"}, {Name: "a.example.test.", Type: "TXT"}, {Name: "a.example.test.", Type: "A"}}
-	sortSets(names)
+	sortSets(names, rq(1, 0, "", ""))
 	got := []string{}
 	for _, r := range names {
 		got = append(got, r.Type+" "+r.Name)
@@ -422,11 +425,94 @@ func TestSort(t *testing.T) {
 	}
 }
 
+func rq(page, size int, sort string, order listquery.Dir) listquery.Request {
+	r, err := listquery.New(page, size, sort, order, store.RecordList)
+	if err != nil {
+		panic(err)
+	}
+	return r
+}
+
+func keys(sets []RecordSet) string {
+	out := make([]string, 0, len(sets))
+	for _, r := range sets {
+		out = append(out, r.Type+" "+r.Name)
+	}
+	return strings.Join(out, ",")
+}
+
+// The sort fields of store.RecordList in both directions: name keeps DNS
+// canonical order (reversed labels, apex first, SOA leading on ties), type and
+// ttl fall back to that order on ties.
+func TestSortFields(t *testing.T) {
+	base := []RecordSet{{Name: "b.example.test.", Type: "A", TTL: 300}, {Name: "example.test.", Type: "NS", TTL: 3600},
+		{Name: "a.b.example.test.", Type: "A", TTL: 60}, {Name: "example.test.", Type: "SOA", TTL: 3600},
+		{Name: "a-z.example.test.", Type: "TXT", TTL: 300}, {Name: "a.example.test.", Type: "MX", TTL: 60}}
+	cases := []struct {
+		sort  string
+		order listquery.Dir
+		want  string
+	}{
+		{"name", listquery.Asc, "SOA example.test.,NS example.test.,MX a.example.test.,TXT a-z.example.test.,A b.example.test.,A a.b.example.test."},
+		{"name", listquery.Desc, "A a.b.example.test.,A b.example.test.,TXT a-z.example.test.,MX a.example.test.,NS example.test.,SOA example.test."},
+		{"type", listquery.Asc, "A b.example.test.,A a.b.example.test.,MX a.example.test.,NS example.test.,SOA example.test.,TXT a-z.example.test."},
+		{"type", listquery.Desc, "TXT a-z.example.test.,SOA example.test.,NS example.test.,MX a.example.test.,A a.b.example.test.,A b.example.test."},
+		{"ttl", listquery.Asc, "MX a.example.test.,A a.b.example.test.,TXT a-z.example.test.,A b.example.test.,SOA example.test.,NS example.test."},
+		{"ttl", listquery.Desc, "NS example.test.,SOA example.test.,A b.example.test.,TXT a-z.example.test.,A a.b.example.test.,MX a.example.test."},
+	}
+	for _, c := range cases {
+		sets := append([]RecordSet(nil), base...)
+		sortSets(sets, rq(1, 0, c.sort, c.order))
+		if got := keys(sets); got != c.want {
+			t.Errorf("%s %s:\n got %s\nwant %s", c.sort, c.order, got, c.want)
+		}
+	}
+}
+
+// Paging a zone under every sort and direction returns each record set once.
+func TestListPagingExactlyOnce(t *testing.T) {
+	h, id := bigZone(t)
+	ctx := context.Background()
+	for field := range store.RecordList.Fields {
+		for _, dir := range []listquery.Dir{listquery.Asc, listquery.Desc} {
+			seen := map[string]bool{}
+			var total int
+			for p := 1; ; p++ {
+				items, n, applied, err := h.svc.List(ctx, h.subA, id, Filter{Query: "host00"}, rq(p, 37, field, dir))
+				if err != nil || applied.Page != p {
+					t.Fatalf("%s %s page %d: %v (applied %d)", field, dir, p, err, applied.Page)
+				}
+				total = n
+				for _, r := range items {
+					k := r.Name + "|" + r.Type
+					if seen[k] {
+						t.Fatalf("%s %s: %s twice", field, dir, k)
+					}
+					seen[k] = true
+				}
+				if p*37 >= n {
+					break
+				}
+			}
+			if len(seen) != total || total == 0 {
+				t.Fatalf("%s %s: %d of %d", field, dir, len(seen), total)
+			}
+		}
+	}
+	// the record list's maximum page size is 200
+	if items, _, applied, _ := h.svc.List(ctx, h.subA, id, Filter{}, rq(1, 200, "", "")); len(items) != 200 || applied.PageSize != 200 {
+		t.Fatalf("max page = %d", len(items))
+	}
+	if _, err := listquery.New(1, 201, "", "", store.RecordList); err == nil {
+		t.Fatal("page_size 201 accepted")
+	}
+}
+
 // SC-008: listing/searching a 5,000-rrset zone stays well under 3 s.
 func TestListLargeZoneBudget(t *testing.T) {
 	h, id := bigZone(t)
 	start := time.Now()
-	items, total, err := h.svc.List(context.Background(), h.subA, id, Filter{Query: "host0499", Type: "A"})
+	items, total, _, err := h.svc.List(context.Background(), h.subA, id, Filter{Query: "host0499", Type: "A"}, rq(1, 0, "", ""))
 	if err != nil || total != 10 || len(items) != 10 {
 		t.Fatalf("list = %d %d %v", len(items), total, err)
 	}
@@ -451,7 +537,7 @@ func BenchmarkList5000(b *testing.B) {
 	ctx := context.Background()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if _, _, err := h.svc.List(ctx, h.subA, id, Filter{Query: "host01", PageSize: 500}); err != nil {
+		if _, _, _, err := h.svc.List(ctx, h.subA, id, Filter{Query: "host01"}, rq(1, 200, "", "")); err != nil {
 			b.Fatal(err)
 		}
 	}

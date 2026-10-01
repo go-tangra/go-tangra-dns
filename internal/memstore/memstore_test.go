@@ -21,23 +21,32 @@ func TestFailNextEveryMethod(t *testing.T) {
 	m := New()
 	tn := repotest.TenantA
 	calls := map[string]func() error{
-		"CreateZone":          func() error { return m.CreateZone(ctx, store.Zone{}) },
-		"GetZone":             func() error { _, err := m.GetZone(ctx, tn, "x"); return err },
-		"GetZoneByName":       func() error { _, err := m.GetZoneByName(ctx, tn, "x."); return err },
-		"ListZones":           func() error { _, _, err := m.ListZones(ctx, tn, store.ZoneFilter{}); return err },
-		"UpdateZone":          func() error { _, err := m.UpdateZone(ctx, store.Zone{}); return err },
-		"DeleteZone":          func() error { return m.DeleteZone(ctx, tn, "x") },
-		"ZoneConflict":        func() error { _, err := m.ZoneConflict(ctx, tn, "x."); return err },
-		"AllZoneNames":        func() error { _, err := m.AllZoneNames(ctx); return err },
-		"ZonesForTenant":      func() error { _, err := m.ZonesForTenant(ctx, tn); return err },
-		"CreateTemplate":      func() error { return m.CreateTemplate(ctx, store.Template{}) },
-		"GetTemplate":         func() error { _, err := m.GetTemplate(ctx, tn, "x"); return err },
-		"ListTemplates":       func() error { _, err := m.ListTemplates(ctx, tn); return err },
-		"UpdateTemplate":      func() error { _, err := m.UpdateTemplate(ctx, store.Template{}); return err },
-		"DeleteTemplate":      func() error { return m.DeleteTemplate(ctx, tn, "x") },
-		"CreateSupermaster":   func() error { return m.CreateSupermaster(ctx, store.Supermaster{}) },
-		"GetSupermaster":      func() error { _, err := m.GetSupermaster(ctx, tn, "x"); return err },
-		"ListSupermasters":    func() error { _, err := m.ListSupermasters(ctx, tn); return err },
+		"CreateZone":    func() error { return m.CreateZone(ctx, store.Zone{}) },
+		"GetZone":       func() error { _, err := m.GetZone(ctx, tn, "x"); return err },
+		"GetZoneByName": func() error { _, err := m.GetZoneByName(ctx, tn, "x."); return err },
+		"ListZones": func() error {
+			_, _, _, err := m.ListZones(ctx, tn, store.ZoneFilter{}, repotest.Req(store.ZoneList, 0, 0, "", ""))
+			return err
+		},
+		"UpdateZone":     func() error { _, err := m.UpdateZone(ctx, store.Zone{}); return err },
+		"DeleteZone":     func() error { return m.DeleteZone(ctx, tn, "x") },
+		"ZoneConflict":   func() error { _, err := m.ZoneConflict(ctx, tn, "x."); return err },
+		"AllZoneNames":   func() error { _, err := m.AllZoneNames(ctx); return err },
+		"ZonesForTenant": func() error { _, err := m.ZonesForTenant(ctx, tn); return err },
+		"CreateTemplate": func() error { return m.CreateTemplate(ctx, store.Template{}) },
+		"GetTemplate":    func() error { _, err := m.GetTemplate(ctx, tn, "x"); return err },
+		"ListTemplates": func() error {
+			_, _, _, err := m.ListTemplates(ctx, tn, repotest.Req(store.TemplateList, 0, 0, "", ""))
+			return err
+		},
+		"UpdateTemplate":    func() error { _, err := m.UpdateTemplate(ctx, store.Template{}); return err },
+		"DeleteTemplate":    func() error { return m.DeleteTemplate(ctx, tn, "x") },
+		"CreateSupermaster": func() error { return m.CreateSupermaster(ctx, store.Supermaster{}) },
+		"GetSupermaster":    func() error { _, err := m.GetSupermaster(ctx, tn, "x"); return err },
+		"ListSupermasters": func() error {
+			_, _, _, err := m.ListSupermasters(ctx, tn, repotest.Req(store.SupermasterList, 0, 0, "", ""))
+			return err
+		},
 		"DeleteSupermaster":   func() error { return m.DeleteSupermaster(ctx, tn, "x") },
 		"GetServerConfig":     func() error { _, err := m.GetServerConfig(ctx); return err },
 		"SaveServerConfig":    func() error { return m.SaveServerConfig(ctx, store.ServerConfig{}) },

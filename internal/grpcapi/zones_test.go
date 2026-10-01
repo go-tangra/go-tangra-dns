@@ -47,6 +47,20 @@ func TestZonesList(t *testing.T) {
 	if err != nil || res.Total != 1 || res.Items[0].Name != "lab.example.test." {
 		t.Fatalf("query = %+v %v", res, err)
 	}
+	// lenient paging kept: page 2 of 1-row pages, beyond the end is empty,
+	// non-positive page / oversized size are accepted
+	res, err = s.List(ctx, &dnsv1.ListZonesRequest{TenantId: tn, Page: 2, PageSize: 1})
+	if err != nil || res.Total != 2 || len(res.Items) != 1 || res.Items[0].Name != "lab.example.test." {
+		t.Fatalf("page 2 = %+v %v", res, err)
+	}
+	res, err = s.List(ctx, &dnsv1.ListZonesRequest{TenantId: tn, Page: 3, PageSize: 1})
+	if err != nil || res.Total != 2 || len(res.Items) != 0 {
+		t.Fatalf("beyond = %+v %v", res, err)
+	}
+	res, err = s.List(ctx, &dnsv1.ListZonesRequest{TenantId: tn, Page: -1, PageSize: 5000})
+	if err != nil || len(res.Items) != 2 {
+		t.Fatalf("lenient = %+v %v", res, err)
+	}
 	if _, err := s.List(ctx, &dnsv1.ListZonesRequest{TenantId: "x"}); status.Code(err) != codes.InvalidArgument {
 		t.Fatalf("bad tenant = %v", err)
 	}

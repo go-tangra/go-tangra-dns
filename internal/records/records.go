@@ -12,8 +12,10 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"sort"
+	"slices"
 	"strings"
+
+	"github.com/go-tangra/go-tangra/v4/listquery"
 
 	"github.com/go-tangra/go-tangra-dns/v4/internal/audit"
 	"github.com/go-tangra/go-tangra-dns/v4/internal/authz"
@@ -28,12 +30,6 @@ import (
 var (
 	ErrNotFound = errors.New("records: record set not found")
 	ErrConflict = errors.New("records: a record set with that name and type exists")
-)
-
-// Paging bounds.
-const (
-	DefaultPageSize = 100
-	MaxPageSize     = 500
 )
 
 // Deps wire the service; Zones and PDNS are required.
@@ -83,13 +79,12 @@ type Key struct {
 	Type string `json:"type"`
 }
 
-// Filter selects a page of record sets: Type exact (any case), Query a
-// case-insensitive substring of the qualified name.
+// Filter selects record sets: Type exact (any case), Query a case-insensitive
+// substring of the qualified name. Paging and order come with a
+// listquery.Request (store.RecordList).
 type Filter struct {
-	Type     string
-	Query    string
-	Page     int
-	PageSize int
+	Type  string
+	Query string
 }
 
 func toView(r pdns.RRset) RecordSet {
@@ -104,13 +99,14 @@ func toView(r pdns.RRset) RecordSet {
 	return v
 }
 
-// reversed returns the labels of a name from the root down (DNS canonical order).
-func reversed(name string) []string {
+// canonical returns the name's labels from the root down (DNS canonical
+// order), joined by \x01: below every byte a label may hold, so comparing the
+// joined strings compares label by label and a parent sorts before its
+// children (apex first).
+func canonical(name string) string {
 	l := strings.Split(strings.TrimSuffix(strings.ToLower(name), "."), ".")
-	for i, j := 0, len(l)-1; i < j; i, j = i+1, j-1 {
-		l[i], l[j] = l[j], l[i]
-	}
-	return l
+	slices.Reverse(l)
+	return strings.Join(l, "\x01")
 }
 
 func typeRank(t string) string {
@@ -120,25 +116,25 @@ func typeRank(t string) string {
 	return t
 }
 
-// sortSets orders sets in DNS canonical name order (apex first), then by type
-// with SOA leading.
-func sortSets(sets []RecordSet) {
-	keys := make(map[string][]string, len(sets))
-	for _, s := range sets {
-		keys[s.Name] = reversed(s.Name)
+// setKey is the sort value of a store.RecordList field.
+func setKey(r RecordSet, field string) any {
+	switch field {
+	case "type":
+		return r.Type
+	case "ttl":
+		return int64(r.TTL)
 	}
-	sort.SliceStable(sets, func(i, j int) bool {
-		a, b := keys[sets[i].Name], keys[sets[j].Name]
-		for k := 0; k < len(a) && k < len(b); k++ {
-			if a[k] != b[k] {
-				return a[k] < b[k]
-			}
-		}
-		if len(a) != len(b) {
-			return len(a) < len(b)
-		}
-		return typeRank(sets[i].Type) < typeRank(sets[j].Type)
-	})
+	return canonical(r.Name)
+}
+
+// setTie is the unique tie-breaker: DNS canonical name, then type with SOA
+// leading (\x00 ends the name below the \x01 label separator).
+func setTie(r RecordSet) string { return canonical(r.Name) + "\x00" + typeRank(r.Type) }
+
+// sortSets orders sets in the order of req (default: DNS canonical name order,
+// apex first, then by type with SOA leading).
+func sortSets(sets []RecordSet, req listquery.Request) {
+	listquery.SortSlice(sets, req, setKey, setTie)
 }
 
 func (s *Service) audit(ctx context.Context, subj authz.Subjects, t audit.EventType, z store.Zone, name, typ string, err error) {
@@ -188,15 +184,16 @@ func (s *Service) patch(ctx context.Context, z store.Zone, changes []pdns.RRset)
 	return zones.MapPDNS(s.d.Zones.Call("PatchRRsets", func() error { return s.d.PDNS.PatchRRsets(ctx, z.PDNSID, changes) }))
 }
 
-// List returns one page of the zone's record sets and the total match count.
-func (s *Service) List(ctx context.Context, subj authz.Subjects, zoneID string, f Filter) ([]RecordSet, int, error) {
+// List returns one page of the zone's record sets in the order of req
+// (store.RecordList), the total match count and req clamped to the last page.
+func (s *Service) List(ctx context.Context, subj authz.Subjects, zoneID string, f Filter, req listquery.Request) ([]RecordSet, int, listquery.Request, error) {
 	z, err := s.load(ctx, subj, zoneID, authz.ZonesRead)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, req, err
 	}
 	sets, err := s.rrsets(ctx, z)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, req, err
 	}
 	typ := strings.ToUpper(strings.TrimSpace(f.Type))
 	q := strings.ToLower(strings.TrimSpace(f.Query))
@@ -207,18 +204,9 @@ func (s *Service) List(ctx context.Context, subj authz.Subjects, zoneID string, 
 		}
 		matched = append(matched, toView(r))
 	}
-	sortSets(matched)
-	page, size := f.Page, f.PageSize
-	if page <= 0 {
-		page = 1
-	}
-	if size <= 0 {
-		size = DefaultPageSize
-	}
-	size = min(size, MaxPageSize)
-	lo := min((page-1)*size, len(matched))
-	hi := min(lo+size, len(matched))
-	return matched[lo:hi], len(matched), nil
+	sortSets(matched, req)
+	page, total, applied := listquery.Window(matched, req)
+	return page, total, applied, nil
 }
 
 // writable refuses record writes on secondaries (their data comes from the

@@ -3,7 +3,10 @@ package httpapi
 import (
 	"net/http"
 
+	"github.com/go-tangra/go-tangra/v4/listquery"
+
 	"github.com/go-tangra/go-tangra-dns/v4/internal/authz"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/store"
 	"github.com/go-tangra/go-tangra-dns/v4/internal/supermasters"
 	"github.com/go-tangra/go-tangra-dns/v4/internal/templates"
 )
@@ -11,12 +14,16 @@ import (
 // registerTemplates mounts the zone-template routes (US3).
 func (s *Server) registerTemplates(svc *templates.Service) {
 	s.withSubject("GET", Prefix+"/templates", func(w http.ResponseWriter, r *http.Request, subj authz.Subjects) {
-		items, err := svc.List(r.Context(), subj)
+		req, ok := parseList(w, r, store.TemplateList)
+		if !ok {
+			return
+		}
+		items, total, req, err := svc.List(r.Context(), subj, req)
 		if err != nil {
 			s.failDNS(w, r, err)
 			return
 		}
-		WriteJSON(w, http.StatusOK, map[string]any{"items": items})
+		WriteJSON(w, http.StatusOK, listquery.NewPage(items, total, req))
 	})
 	s.withSubject("POST", Prefix+"/templates", func(w http.ResponseWriter, r *http.Request, subj authz.Subjects) {
 		var in templates.Input
@@ -64,12 +71,16 @@ func (s *Server) registerTemplates(svc *templates.Service) {
 // registerSupermasters mounts the supermaster routes (US3; no update route).
 func (s *Server) registerSupermasters(svc *supermasters.Service) {
 	s.withSubject("GET", Prefix+"/supermasters", func(w http.ResponseWriter, r *http.Request, subj authz.Subjects) {
-		items, err := svc.List(r.Context(), subj)
+		req, ok := parseList(w, r, store.SupermasterList)
+		if !ok {
+			return
+		}
+		items, total, req, err := svc.List(r.Context(), subj, req)
 		if err != nil {
 			s.failDNS(w, r, err)
 			return
 		}
-		WriteJSON(w, http.StatusOK, map[string]any{"items": items})
+		WriteJSON(w, http.StatusOK, listquery.NewPage(items, total, req))
 	})
 	s.withSubject("POST", Prefix+"/supermasters", func(w http.ResponseWriter, r *http.Request, subj authz.Subjects) {
 		var in supermasters.Input

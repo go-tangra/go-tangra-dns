@@ -17,6 +17,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-tangra/go-tangra/v4/listquery"
+
 	"github.com/go-tangra/go-tangra-dns/v4/internal/audit"
 	"github.com/go-tangra/go-tangra-dns/v4/internal/authz"
 	"github.com/go-tangra/go-tangra-dns/v4/internal/metrics"
@@ -144,12 +146,13 @@ func (s *Service) audit(ctx context.Context, subj authz.Subjects, t audit.EventT
 	audit.Emit(ctx, s.d.Audit, e)
 }
 
-// List returns the tenant's supermasters.
-func (s *Service) List(ctx context.Context, subj authz.Subjects) ([]store.Supermaster, error) {
+// List returns one page of the tenant's supermasters (store.SupermasterList),
+// the total and req clamped to the last page.
+func (s *Service) List(ctx context.Context, subj authz.Subjects, req listquery.Request) ([]store.Supermaster, int, listquery.Request, error) {
 	if err := s.guard(ctx, subj); err != nil {
-		return nil, err
+		return nil, 0, req, err
 	}
-	return s.d.Store.ListSupermasters(ctx, subj.TenantID)
+	return s.d.Store.ListSupermasters(ctx, subj.TenantID, req)
 }
 
 // Get returns one of the tenant's supermasters.

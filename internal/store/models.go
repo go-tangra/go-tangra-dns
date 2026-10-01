@@ -101,37 +101,12 @@ type Zone struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
-// ZoneFilter selects a page of zones (name order). Query matches the name
-// case-insensitively as a substring.
+// ZoneFilter selects zones; paging and order come with a listquery.Request
+// (ZoneList). Query matches the name case-insensitively as a substring.
 type ZoneFilter struct {
-	Query    string
-	Kind     string
-	Origin   string
-	Page     int // 1-based; <=0 means 1
-	PageSize int // <=0 means 25
-}
-
-// Normalized returns the filter with paging defaults applied and the page size
-// capped at max.
-func (f ZoneFilter) Normalized(max int) ZoneFilter {
-	f.Page, f.PageSize = normPage(f.Page, f.PageSize, max)
-	return f
-}
-
-// Offset is the row offset of the page.
-func (f ZoneFilter) Offset() int { return (f.Page - 1) * f.PageSize }
-
-func normPage(page, size, max int) (int, int) {
-	if page <= 0 {
-		page = 1
-	}
-	if size <= 0 {
-		size = 25
-	}
-	if max > 0 && size > max {
-		size = max
-	}
-	return page, size
+	Query  string
+	Kind   string
+	Origin string
 }
 
 // Matches reports whether z passes the filter's query/kind/origin predicates.

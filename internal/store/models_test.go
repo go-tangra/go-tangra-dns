@@ -23,14 +23,6 @@ func TestKinds(t *testing.T) {
 }
 
 func TestZoneFilter(t *testing.T) {
-	f := ZoneFilter{PageSize: 500}.Normalized(100)
-	if f.Page != 1 || f.PageSize != 100 || f.Offset() != 0 {
-		t.Fatalf("normalized = %+v", f)
-	}
-	f = ZoneFilter{Page: 3}.Normalized(0)
-	if f.PageSize != 25 || f.Offset() != 50 {
-		t.Fatalf("defaults = %+v", f)
-	}
 	z := Zone{Name: "lab.example.com.", Kind: KindMaster, Origin: OriginIPAM}
 	if !(ZoneFilter{Query: " LAB "}).Matches(z) || (ZoneFilter{Query: "corp"}).Matches(z) {
 		t.Fatal("query")

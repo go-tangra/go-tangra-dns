@@ -244,7 +244,7 @@ func TestZoneListFiltersAndPaging(t *testing.T) {
 	if pg.Total != 0 || pg.Items == nil {
 		t.Fatalf("origin = %+v", pg)
 	}
-	if w := h.do("GET", p+"/zones?page_size=101", "viewer-a", ""); w.Code != 422 {
+	if w := h.do("GET", p+"/zones?page_size=201", "viewer-a", ""); w.Code != 422 {
 		t.Fatalf("page_size cap = %d", w.Code)
 	}
 }

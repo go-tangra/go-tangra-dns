@@ -288,7 +288,7 @@ func TestRepoDB(t *testing.T) {
 		if err := db.CreateSupermaster(ctx, dup); !errors.Is(err, repo.ErrConflict) {
 			t.Fatalf("pair across tenants: %v", err)
 		}
-		if list, _ := db.ListSupermasters(ctx, repotest.TenantB); len(list) != 0 {
+		if list, _, _, _ := db.ListSupermasters(ctx, repotest.TenantB, repotest.Req(store.SupermasterList, 0, 0, "", "")); len(list) != 0 {
 			t.Fatal("B sees A's supermaster")
 		}
 	})

@@ -28,21 +28,25 @@ components:
       required: true
       schema: { type: string, maxLength: 64 }
       example: '018f3a2b-0000-7000-8000-000000000001'
+    # List contract (go-tangra specs/032-server-side-tables, http-list.md).
+    # A page beyond the last returns the last page; invalid values are
+    # 422 validation_failed with detail.param naming the parameter.
     page:
       name: page
       in: query
       required: false
-      schema: { type: integer, minimum: 1, maximum: 100000 }
+      schema: { type: integer, minimum: 1, maximum: 2147483647 }
     pageSize:
       name: page_size
       in: query
       required: false
-      schema: { type: integer, minimum: 1, maximum: 100 }
-    recordPageSize:
-      name: page_size
+      schema: { type: integer, minimum: 1, maximum: 200 }
+    order:
+      name: order
       in: query
       required: false
-      schema: { type: integer, minimum: 1, maximum: 500 }
+      description: direction; defaults to the chosen field's default direction
+      schema: { type: string, enum: [asc, desc] }
   schemas:
     Error:
       type: object
@@ -87,10 +91,14 @@ components:
             notified_serial: { type: integer, description: 'from PowerDNS' }
     ZonePage:
       type: object
-      required: [items, total]
+      required: [items, total, page, page_size, sort, order]
       properties:
         items: { type: array, items: { $ref: '#/components/schemas/Zone' } }
         total: { type: integer }
+        page: { type: integer, description: 'the page returned (clamped to the last page)' }
+        page_size: { type: integer }
+        sort: { type: string }
+        order: { type: string, enum: [asc, desc] }
     ZoneCreate:
       type: object
       additionalProperties: false
@@ -153,10 +161,14 @@ components:
         read_only: { type: boolean, description: 'true for SOA' }
     RecordPage:
       type: object
-      required: [items, total]
+      required: [items, total, page, page_size, sort, order]
       properties:
         items: { type: array, items: { $ref: '#/components/schemas/RecordSet' } }
         total: { type: integer }
+        page: { type: integer, description: 'the page returned (clamped to the last page)' }
+        page_size: { type: integer }
+        sort: { type: string }
+        order: { type: string, enum: [asc, desc] }
     RecordUpdate:
       type: object
       additionalProperties: false
@@ -200,9 +212,14 @@ components:
         updated_at: { type: string, format: date-time }
     TemplateList:
       type: object
-      required: [items]
+      required: [items, total, page, page_size, sort, order]
       properties:
         items: { type: array, items: { $ref: '#/components/schemas/Template' } }
+        total: { type: integer }
+        page: { type: integer, description: 'the page returned (clamped to the last page)' }
+        page_size: { type: integer }
+        sort: { type: string }
+        order: { type: string, enum: [asc, desc] }
     SupermasterInput:
       type: object
       additionalProperties: false
@@ -221,9 +238,14 @@ components:
         created_at: { type: string, format: date-time }
     SupermasterList:
       type: object
-      required: [items]
+      required: [items, total, page, page_size, sort, order]
       properties:
         items: { type: array, items: { $ref: '#/components/schemas/Supermaster' } }
+        total: { type: integer }
+        page: { type: integer, description: 'the page returned (clamped to the last page)' }
+        page_size: { type: integer }
+        sort: { type: string }
+        order: { type: string, enum: [asc, desc] }
     RecursorSettings:
       type: object
       additionalProperties: false
@@ -326,8 +348,10 @@ paths:
         - { name: origin, in: query, schema: { $ref: '#/components/schemas/ZoneOrigin' } }
         - { $ref: '#/components/parameters/page' }
         - { $ref: '#/components/parameters/pageSize' }
+        - { name: sort, in: query, description: 'default name (asc); updated_at defaults to desc', schema: { type: string, enum: [name, kind, updated_at] } }
+        - { $ref: '#/components/parameters/order' }
       responses:
-        '200': { description: 'zones (name order)', content: { application/json: { schema: { $ref: '#/components/schemas/ZonePage' } } } }
+        '200': { description: 'one page of zones', content: { application/json: { schema: { $ref: '#/components/schemas/ZonePage' } } } }
         default: { $ref: '#/components/responses/Error' }
     post:
       operationId: createZone
@@ -392,9 +416,11 @@ paths:
         - { name: type, in: query, schema: { type: string, maxLength: 10 } }
         - { name: query, in: query, schema: { type: string, maxLength: 254 } }
         - { $ref: '#/components/parameters/page' }
-        - { $ref: '#/components/parameters/recordPageSize' }
+        - { $ref: '#/components/parameters/pageSize' }
+        - { name: sort, in: query, description: 'default name: DNS canonical order (apex first, SOA leading); default page size 100', schema: { type: string, enum: [name, type, ttl] } }
+        - { $ref: '#/components/parameters/order' }
       responses:
-        '200': { description: 'record sets (name, type order); SOA read_only', content: { application/json: { schema: { $ref: '#/components/schemas/RecordPage' } } } }
+        '200': { description: 'one page of record sets; SOA read_only', content: { application/json: { schema: { $ref: '#/components/schemas/RecordPage' } } } }
         default: { $ref: '#/components/responses/Error' }
     post:
       operationId: upsertRecordSet
@@ -430,8 +456,13 @@ paths:
     get:
       operationId: listTemplates
       x-freya-permission: 'zones:read'
+      parameters:
+        - { $ref: '#/components/parameters/page' }
+        - { $ref: '#/components/parameters/pageSize' }
+        - { name: sort, in: query, description: 'default name (case-insensitive)', schema: { type: string, enum: [name] } }
+        - { $ref: '#/components/parameters/order' }
       responses:
-        '200': { description: 'templates (name order)', content: { application/json: { schema: { $ref: '#/components/schemas/TemplateList' } } } }
+        '200': { description: 'one page of templates', content: { application/json: { schema: { $ref: '#/components/schemas/TemplateList' } } } }
         default: { $ref: '#/components/responses/Error' }
     post:
       operationId: createTemplate
@@ -470,6 +501,11 @@ paths:
     get:
       operationId: listSupermasters
       x-freya-permission: 'supermasters:manage'
+      parameters:
+        - { $ref: '#/components/parameters/page' }
+        - { $ref: '#/components/parameters/pageSize' }
+        - { name: sort, in: query, description: 'default ip (inet order)', schema: { type: string, enum: [ip, nameserver] } }
+        - { $ref: '#/components/parameters/order' }
       responses:
         '200': { description: "this tenant's supermasters", content: { application/json: { schema: { $ref: '#/components/schemas/SupermasterList' } } } }
         default: { $ref: '#/components/responses/Error' }

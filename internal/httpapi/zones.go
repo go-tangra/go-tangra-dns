@@ -4,8 +4,9 @@ import (
 	"errors"
 	"net/http"
 	"regexp"
-	"strconv"
 	"strings"
+
+	"github.com/go-tangra/go-tangra/v4/listquery"
 
 	"github.com/go-tangra/go-tangra-dns/v4/internal/authz"
 	"github.com/go-tangra/go-tangra-dns/v4/internal/records"
@@ -89,25 +90,33 @@ func (s *Server) withSubject(method, path string, fn func(w http.ResponseWriter,
 	})
 }
 
-func queryInt(r *http.Request, name string) int {
-	n, err := strconv.Atoi(r.URL.Query().Get(name))
-	if err != nil {
-		return 0
+// parseList reads page/page_size/sort/order against spec; an invalid value is
+// answered with validation_failed naming the parameter (never its value) and
+// ok=false.
+func parseList(w http.ResponseWriter, r *http.Request, spec listquery.Spec) (listquery.Request, bool) {
+	req, err := listquery.Parse(r.URL.Query(), spec)
+	var le *listquery.Error
+	if errors.As(err, &le) {
+		WriteDetail(w, ErrValidation, map[string]any{"param": le.Param})
+		return req, false
 	}
-	return n
+	return req, err == nil
 }
 
 // registerZones mounts the zone routes (US1).
 func (s *Server) registerZones(svc *zones.Service) {
 	s.withSubject("GET", Prefix+"/zones", func(w http.ResponseWriter, r *http.Request, subj authz.Subjects) {
+		req, ok := parseList(w, r, store.ZoneList)
+		if !ok {
+			return
+		}
 		q := r.URL.Query()
-		items, total, err := svc.List(r.Context(), subj, store.ZoneFilter{Query: q.Get("query"), Kind: q.Get("kind"), Origin: q.Get("origin"),
-			Page: queryInt(r, "page"), PageSize: queryInt(r, "page_size")})
+		items, total, req, err := svc.List(r.Context(), subj, store.ZoneFilter{Query: q.Get("query"), Kind: q.Get("kind"), Origin: q.Get("origin")}, req)
 		if err != nil {
 			s.failDNS(w, r, err)
 			return
 		}
-		WriteJSON(w, http.StatusOK, map[string]any{"items": items, "total": total})
+		WriteJSON(w, http.StatusOK, listquery.NewPage(items, total, req))
 	})
 	s.withSubject("POST", Prefix+"/zones", func(w http.ResponseWriter, r *http.Request, subj authz.Subjects) {
 		var in zones.CreateInput
