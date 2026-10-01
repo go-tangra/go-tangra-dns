@@ -76,8 +76,8 @@ github.com/go-tangra/go-tangra-ipam/sdk/v4 v4.0.0 h1:WLGGmBiPKuWP8YQzhEbRg/srqbu
 github.com/go-tangra/go-tangra-ipam/sdk/v4 v4.0.0/go.mod h1:adQWRKUuyaM1pV8O4b+q9oFki32FIxlL+7VXbkuNJRU=
 github.com/go-tangra/go-tangra-lcm/sdk/v4 v4.1.0 h1:KjAVJn8jAZbcIyL6B3yasngtFTxwBA1s9y7TW1ylqjc=
 github.com/go-tangra/go-tangra-lcm/sdk/v4 v4.1.0/go.mod h1:j/24DHoyBPfYcHzehJKkQLL/s1jDPToGr/LqV/qA/HM=
-github.com/go-tangra/go-tangra-portal/sdk/v4 v4.0.0 h1:THNjBM31OknVg0TJey5EuntROMaCY1ndozbN5ZBlLlg=
-github.com/go-tangra/go-tangra-portal/sdk/v4 v4.0.0/go.mod h1:SKP6ZWoKPtYo7IZboDjGZW3rbGnKtSBr7I24EoLT2Bk=
+github.com/go-tangra/go-tangra-portal/sdk/v4 v4.1.0 h1:vER2dKZi79h1Q4AvLyLmrcJ47vAa6jY5AlvUl+kXIiw=
+github.com/go-tangra/go-tangra-portal/sdk/v4 v4.1.0/go.mod h1:SKP6ZWoKPtYo7IZboDjGZW3rbGnKtSBr7I24EoLT2Bk=
 github.com/go-tangra/go-tangra-warden/sdk/v4 v4.0.0 h1:oP7sd8Gqnvh4yNRhTsGLHL7ANWYsmGme1SQxsqn7sUw=
 github.com/go-tangra/go-tangra-warden/sdk/v4 v4.0.0/go.mod h1:u38jlvx5noPi4xzQcFOMUkInEWUaDKb1/cuTDH+kcfQ=
 github.com/go-tangra/go-tangra/v4 v4.3.1 h1:wPPjsVjuwvelKKzrDZrEDDCPXm0Zs5eQt4dsQKqyxiE=
