@@ -3,10 +3,10 @@
 // secondary zones. Everyone with the permission can list them; adding and
 // removing needs platform administration (the actions are hidden otherwise
 // and the server refuses them anyway). There is no edit: delete and re-create.
-import { computed, inject, onMounted, ref } from 'vue'
+import { computed, inject, onMounted, ref, watch } from 'vue'
 import { ABILITY_TOKEN } from '@casl/vue'
 import type { AnyAbility } from '@casl/ability'
-import { UiPage, UiAlert, UiCard, UiButton, UiDataTable, useConfirm, type Column } from '@go-tangra/ui'
+import { UiPage, UiAlert, UiCard, UiButton, UiDataTable, useConfirm, useListQuery, type Column } from '@go-tangra/ui'
 import { useSupermasters } from '@/stores/supermasters'
 import type { Supermaster } from '@/api/types'
 import { describe } from '@/api/client'
@@ -17,11 +17,17 @@ const confirm = useConfirm()
 const ability = inject<AnyAbility | null>(ABILITY_TOKEN, null)
 const canCreate = computed(() => ability?.can('create', 'DnsSupermaster') ?? false)
 const canDelete = computed(() => ability?.can('delete', 'DnsSupermaster') ?? false)
-onMounted(() => void store.list())
+const lq = useListQuery('supermasters', { sortable: ['ip', 'nameserver'], defaultSort: { key: 'ip', dir: 'asc' } })
+async function reload(): Promise<void> {
+  const p = await store.list({ ...lq.query.value })
+  if (p) lq.clampTo(p)
+}
+watch(lq.query, () => void reload())
+onMounted(() => void reload())
 
 const columns: Column<Supermaster>[] = [
   { key: 'ip', label: 'IP address', sortable: true },
-  { key: 'nameserver', label: 'Nameserver' },
+  { key: 'nameserver', label: 'Nameserver', sortable: true },
   { key: 'created_at', label: 'Added', hideOnStack: true },
 ]
 const creating = ref(false)
@@ -30,6 +36,7 @@ async function remove(s: Supermaster): Promise<void> {
   if (!(await confirm.ask({ title: `Remove ${s.ip} (${s.nameserver})?`, text: 'The primary can no longer create zones on the DNS server. Zones it created are kept.', danger: true, confirmLabel: 'Remove' }))) return
   try {
     await store.remove(s.id)
+    await reload()
   } catch (e) {
     store.error = describe(e)
   }
@@ -40,12 +47,12 @@ async function remove(s: Supermaster): Promise<void> {
   <UiPage title="Supermasters" subtitle="Primaries allowed to create secondary zones">
     <template #actions>
       <UiButton v-if="canCreate" icon="mdi-plus" data-test="supermaster-new" @click="creating = true">Add supermaster</UiButton>
-      <UiButton variant="text" icon="mdi-refresh" icon-only label="Refresh" @click="store.list()" />
+      <UiButton variant="text" icon="mdi-refresh" icon-only label="Refresh" @click="reload" />
     </template>
     <UiAlert v-if="!canCreate" kind="info" data-test="supermaster-admin-hint">Adding or removing supermasters requires platform administration.</UiAlert>
     <UiAlert v-if="store.error" kind="error">{{ store.error }}</UiAlert>
     <UiCard :padded="false">
-      <UiDataTable :items="store.items" :columns="columns" :loading="store.loading" caption="Supermasters" empty-title="No supermasters" :row-attrs="(s) => ({ 'data-test': 'supermaster-row-' + s.id })" data-test="supermasters-table">
+      <UiDataTable :items="store.items" :columns="columns" :loading="store.loading" :total="store.total" :page="lq.page.value" :page-size="lq.pageSize.value" :sort="lq.sort.value" caption="Supermasters" empty-title="No supermasters" :row-attrs="(s) => ({ 'data-test': 'supermaster-row-' + s.id })" data-test="supermasters-table" @update:page="lq.setPage" @update:page-size="lq.setPageSize" @update:sort="lq.setSort">
         <template #cell-ip="{ row }"><span class="font-mono">{{ row.ip }}</span></template>
         <template #cell-nameserver="{ row }"><span class="font-mono">{{ row.nameserver }}</span></template>
         <template #actions="{ row }">
@@ -53,6 +60,6 @@ async function remove(s: Supermaster): Promise<void> {
         </template>
       </UiDataTable>
     </UiCard>
-    <SupermasterDrawer v-if="canCreate" v-model="creating" />
+    <SupermasterDrawer v-if="canCreate" v-model="creating" @saved="reload" />
   </UiPage>
 </template>

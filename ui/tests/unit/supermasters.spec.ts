@@ -24,10 +24,14 @@ describe('supermasters view', () => {
   })
 
   it('platform admin: lists, adds (drawer) and removes after confirmation', async () => {
+    let deleted = false
     const calls = fetchMock((_url, init) => {
       if (init.method === 'POST') return sm('s2', '192.0.2.54')
-      if (init.method === 'DELETE') return reply(204)
-      return { items: [sm('s1', '192.0.2.53')] }
+      if (init.method === 'DELETE') {
+        deleted = true
+        return reply(204)
+      }
+      return deleted ? { items: [], total: 0, page: 1 } : { items: [sm('s1', '192.0.2.53')], total: 1, page: 1 }
     })
     const w = mount(Supermasters, { global: { plugins: [makeRouter(), abilities()] }, attachTo: document.body })
     await flushPromises()
@@ -54,6 +58,8 @@ describe('supermasters view', () => {
     useConfirm().answer(true)
     await flushPromises()
     expect(calls.find((c) => c.init.method === 'DELETE')!.url).toBe('/api/dns/v1/supermasters/s1')
+    // the page is reloaded after the removal (rows and total from the server)
+    expect(calls.at(-1)!.url).toBe('/api/dns/v1/supermasters?page=1&page_size=25&sort=ip&order=asc')
     expect(w.find('[data-test="supermaster-row-s1"]').exists()).toBe(false)
     w.unmount()
   })

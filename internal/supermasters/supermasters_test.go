@@ -5,10 +5,13 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/go-tangra/go-tangra/v4/listquery"
+
 	"github.com/go-tangra/go-tangra-dns/v4/internal/audit"
 	"github.com/go-tangra/go-tangra-dns/v4/internal/authz"
 	"github.com/go-tangra/go-tangra-dns/v4/internal/memstore"
 	"github.com/go-tangra/go-tangra-dns/v4/internal/pdns"
+	"github.com/go-tangra/go-tangra-dns/v4/internal/store"
 	"github.com/go-tangra/go-tangra-dns/v4/internal/validate"
 )
 
@@ -66,11 +69,11 @@ func TestCreateListGetDelete(t *testing.T) {
 	if len(rows) != 1 || rows[0].IP != "192.0.2.53" || rows[0].Nameserver != "ns1.primary.example" || rows[0].Account != tenantA {
 		t.Fatalf("PowerDNS rows = %+v (account forced to the tenant)", rows)
 	}
-	list, err := h.svc.List(ctx, tenantAdm)
+	list, _, _, err := h.svc.List(ctx, tenantAdm, smreq)
 	if err != nil || len(list) != 1 {
 		t.Fatalf("list = %+v %v", list, err)
 	}
-	if list, _ := h.svc.List(ctx, platformB); len(list) != 0 {
+	if list, _, _, _ := h.svc.List(ctx, platformB, smreq); len(list) != 0 {
 		t.Fatalf("other tenant sees rows: %+v", list)
 	}
 	if got, err := h.svc.Get(ctx, tenantAdm, sm.ID); err != nil || got.ID != sm.ID {
@@ -130,7 +133,7 @@ func TestPlatformAdminRequired(t *testing.T) {
 	if _, err := h.svc.Create(ctx, noPerm, Input{IP: "192.0.2.54", Nameserver: "ns1.example.com"}); !errors.Is(err, authz.ErrForbidden) {
 		t.Fatalf("no permission create = %v", err)
 	}
-	if _, err := h.svc.List(ctx, noPerm); !errors.Is(err, authz.ErrForbidden) {
+	if _, _, _, err := h.svc.List(ctx, noPerm, smreq); !errors.Is(err, authz.ErrForbidden) {
 		t.Fatalf("no permission list = %v", err)
 	}
 	for _, subj := range []authz.Subjects{authz.Module(tenantA, "spiffe://example.org/svc/x"), authz.SystemFor(tenantA)} {
@@ -138,7 +141,7 @@ func TestPlatformAdminRequired(t *testing.T) {
 			t.Fatalf("%s create = %v", subj.ActorKind, err)
 		}
 	}
-	if _, err := h.svc.List(ctx, authz.Subjects{}); !errors.Is(err, authz.ErrForbidden) {
+	if _, _, _, err := h.svc.List(ctx, authz.Subjects{}, smreq); !errors.Is(err, authz.ErrForbidden) {
 		t.Fatalf("no tenant = %v", err)
 	}
 	// the system scope may (backup restore)
@@ -191,7 +194,7 @@ func TestCompensation(t *testing.T) {
 	if _, err := h.svc.Create(ctx, platformA, Input{IP: "192.0.2.53", Nameserver: "ns1.example.com"}); !errors.Is(err, pdns.ErrUnavailable) {
 		t.Fatalf("pdns failure = %v", err)
 	}
-	if l, _ := h.svc.List(ctx, platformA); len(l) != 0 {
+	if l, _, _, _ := h.svc.List(ctx, platformA, smreq); len(l) != 0 {
 		t.Fatal("local row without PowerDNS entry")
 	}
 	h.pd.FailNext("CreateSupermaster", &pdns.APIError{Status: 422, Message: "bad"})
@@ -242,7 +245,7 @@ func TestCompensation(t *testing.T) {
 	}
 	// store read failures
 	h.st.FailNext("ListSupermasters")
-	if _, err := h.svc.List(ctx, platformA); err == nil {
+	if _, _, _, err := h.svc.List(ctx, platformA, smreq); err == nil {
 		t.Fatal("list failure swallowed")
 	}
 	h.st.FailNext("GetSupermaster")
@@ -250,3 +253,5 @@ func TestCompensation(t *testing.T) {
 		t.Fatalf("get failure = %v", err)
 	}
 }
+
+var smreq, _ = listquery.New(0, 0, "", "", store.SupermasterList)

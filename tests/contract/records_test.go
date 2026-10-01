@@ -69,7 +69,7 @@ func TestRecordShapesAndList(t *testing.T) {
 	if pg.Total != 7 || len(pg.Items) != 2 {
 		t.Fatalf("paging = %+v", pg)
 	}
-	if w := h.do("GET", rp+"?page_size=501", "viewer-a", ""); w.Code != 422 {
+	if w := h.do("GET", rp+"?page_size=201", "viewer-a", ""); w.Code != 422 {
 		t.Fatalf("page_size cap = %d", w.Code)
 	}
 

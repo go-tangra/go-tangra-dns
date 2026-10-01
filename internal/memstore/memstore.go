@@ -9,12 +9,15 @@ package memstore
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"net/netip"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/go-tangra/go-tangra/v4/listquery"
 
 	"github.com/go-tangra/go-tangra-dns/v4/internal/repo"
 	"github.com/go-tangra/go-tangra-dns/v4/internal/store"
@@ -177,24 +180,33 @@ func (m *Mem) tenantZones(tenantID string) []store.Zone {
 	return out
 }
 
-// ListZones implements repo.Zones.
-func (m *Mem) ListZones(_ context.Context, tenantID string, f store.ZoneFilter) ([]store.Zone, int64, error) {
+// ListZones implements repo.Zones (sorted and windowed like the SQL query).
+func (m *Mem) ListZones(_ context.Context, tenantID string, f store.ZoneFilter, req listquery.Request) ([]store.Zone, int, listquery.Request, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if err := m.fail("ListZones"); err != nil {
-		return nil, 0, err
+		return nil, 0, req, err
 	}
-	f = f.Normalized(0)
 	matched := []store.Zone{}
 	for _, z := range m.tenantZones(tenantID) {
 		if f.Matches(z) {
 			matched = append(matched, z)
 		}
 	}
-	total := int64(len(matched))
-	lo := min(f.Offset(), len(matched))
-	hi := min(lo+f.PageSize, len(matched))
-	return matched[lo:hi], total, nil
+	listquery.SortSlice(matched, req, zoneKey, func(z store.Zone) string { return z.ID })
+	page, total, applied := listquery.Window(matched, req)
+	return page, total, applied, nil
+}
+
+// zoneKey is the sort value of a store.ZoneList field.
+func zoneKey(z store.Zone, field string) any {
+	switch field {
+	case "kind":
+		return z.Kind
+	case "updated_at":
+		return z.UpdatedAt
+	}
+	return z.Name
 }
 
 // UpdateZone implements repo.Zones.
@@ -355,14 +367,17 @@ func (m *Mem) tenantTemplates(tenantID string) []store.Template {
 	return out
 }
 
-// ListTemplates implements repo.Templates.
-func (m *Mem) ListTemplates(_ context.Context, tenantID string) ([]store.Template, error) {
+// ListTemplates implements repo.Templates (name is the only sort field).
+func (m *Mem) ListTemplates(_ context.Context, tenantID string, req listquery.Request) ([]store.Template, int, listquery.Request, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if err := m.fail("ListTemplates"); err != nil {
-		return nil, err
+		return nil, 0, req, err
 	}
-	return m.tenantTemplates(tenantID), nil
+	all := m.tenantTemplates(tenantID)
+	listquery.SortSlice(all, req, func(t store.Template, _ string) any { return t.Name }, func(t store.Template) string { return t.ID })
+	page, total, applied := listquery.Window(all, req)
+	return page, total, applied, nil
 }
 
 // UpdateTemplate implements repo.Templates.
@@ -467,14 +482,35 @@ func (m *Mem) tenantSupermasters(tenantID string) []store.Supermaster {
 	return out
 }
 
-// ListSupermasters implements repo.Supermasters.
-func (m *Mem) ListSupermasters(_ context.Context, tenantID string) ([]store.Supermaster, error) {
+// ListSupermasters implements repo.Supermasters (inet order for ip).
+func (m *Mem) ListSupermasters(_ context.Context, tenantID string, req listquery.Request) ([]store.Supermaster, int, listquery.Request, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if err := m.fail("ListSupermasters"); err != nil {
-		return nil, err
+		return nil, 0, req, err
 	}
-	return m.tenantSupermasters(tenantID), nil
+	all := m.tenantSupermasters(tenantID)
+	listquery.SortSlice(all, req, supermasterKey, func(s store.Supermaster) string { return s.ID })
+	page, total, applied := listquery.Window(all, req)
+	return page, total, applied, nil
+}
+
+// supermasterKey is the sort value of a store.SupermasterList field; ip sorts
+// like PostgreSQL inet (IPv4 before IPv6, then by address bytes).
+func supermasterKey(s store.Supermaster, field string) any {
+	if field == "nameserver" {
+		return s.Nameserver
+	}
+	a, err := netip.ParseAddr(s.IP)
+	if err != nil {
+		return nil
+	}
+	fam := "6"
+	if a.Is4() {
+		fam = "4"
+	}
+	b := a.As16()
+	return fam + hex.EncodeToString(b[:])
 }
 
 // DeleteSupermaster implements repo.Supermasters.

@@ -21,6 +21,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"github.com/go-tangra/go-tangra/v4/listquery"
+
 	"github.com/go-tangra/go-tangra-dns/v4/internal/repo"
 	"github.com/go-tangra/go-tangra-dns/v4/internal/store"
 )
@@ -199,11 +201,10 @@ func collectZones(rows pgx.Rows) ([]store.Zone, error) {
 	return out, rows.Err()
 }
 
-// ListZones implements repo.Zones.
-func (d *DB) ListZones(ctx context.Context, tenantID string, f store.ZoneFilter) ([]store.Zone, int64, error) {
-	f = f.Normalized(0)
+// ListZones implements repo.Zones: count, clamp, then one ordered page.
+func (d *DB) ListZones(ctx context.Context, tenantID string, f store.ZoneFilter, req listquery.Request) ([]store.Zone, int, listquery.Request, error) {
 	var items []store.Zone
-	var total int64
+	var total int
 	q := ""
 	if strings.TrimSpace(f.Query) != "" {
 		q = likePattern(f.Query)
@@ -213,8 +214,9 @@ func (d *DB) ListZones(ctx context.Context, tenantID string, f store.ZoneFilter)
 		if err := tx.QueryRow(ctx, `SELECT count(*) FROM dns_zones`+where, tenantID, f.Kind, f.Origin, q).Scan(&total); err != nil {
 			return mapErr(err)
 		}
-		rows, err := tx.Query(ctx, `SELECT `+zoneCols+` FROM dns_zones`+where+` ORDER BY name COLLATE "C" LIMIT $5 OFFSET $6`,
-			tenantID, f.Kind, f.Origin, q, f.PageSize, f.Offset())
+		req = req.Clamp(total)
+		rows, err := tx.Query(ctx, `SELECT `+zoneCols+` FROM dns_zones`+where+` ORDER BY `+req.OrderBy(store.ZoneList)+` LIMIT $5 OFFSET $6`,
+			tenantID, f.Kind, f.Origin, q, req.Limit(), req.Offset())
 		if err != nil {
 			return mapErr(err)
 		}
@@ -222,9 +224,9 @@ func (d *DB) ListZones(ctx context.Context, tenantID string, f store.ZoneFilter)
 		return err
 	})
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, req, err
 	}
-	return items, total, nil
+	return items, total, req, nil
 }
 
 // UpdateZone implements repo.Zones.
@@ -351,25 +353,41 @@ func (d *DB) GetTemplate(ctx context.Context, tenantID, id string) (store.Templa
 	return t, err
 }
 
-// ListTemplates implements repo.Templates.
-func (d *DB) ListTemplates(ctx context.Context, tenantID string) ([]store.Template, error) {
-	out := []store.Template{}
+// ListTemplates implements repo.Templates: count, clamp, then one ordered page.
+func (d *DB) ListTemplates(ctx context.Context, tenantID string, req listquery.Request) ([]store.Template, int, listquery.Request, error) {
+	var out []store.Template
+	var total int
 	err := d.tenant(ctx, tenantID, func(tx pgx.Tx) error {
-		rows, err := tx.Query(ctx, `SELECT `+templateCols+` FROM dns_zone_templates WHERE tenant_id = $1 ORDER BY lower(name) COLLATE "C", id`, tenantID)
-		if err != nil {
+		if err := tx.QueryRow(ctx, `SELECT count(*) FROM dns_zone_templates WHERE tenant_id = $1`, tenantID).Scan(&total); err != nil {
 			return mapErr(err)
 		}
-		defer rows.Close()
-		for rows.Next() {
-			t, err := scanTemplate(rows)
-			if err != nil {
-				return err
-			}
-			out = append(out, t)
-		}
-		return rows.Err()
+		req = req.Clamp(total)
+		var err error
+		out, err = queryTemplates(ctx, tx, `SELECT `+templateCols+` FROM dns_zone_templates WHERE tenant_id = $1 ORDER BY `+req.OrderBy(store.TemplateList)+` LIMIT $2 OFFSET $3`,
+			tenantID, req.Limit(), req.Offset())
+		return err
 	})
-	return out, err
+	if err != nil {
+		return nil, 0, req, err
+	}
+	return out, total, req, nil
+}
+
+func queryTemplates(ctx context.Context, tx pgx.Tx, sql string, args ...any) ([]store.Template, error) {
+	rows, err := tx.Query(ctx, sql, args...)
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	defer rows.Close()
+	out := []store.Template{}
+	for rows.Next() {
+		t, err := scanTemplate(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, t)
+	}
+	return out, rows.Err()
 }
 
 // UpdateTemplate implements repo.Templates.
@@ -434,25 +452,41 @@ func (d *DB) GetSupermaster(ctx context.Context, tenantID, id string) (store.Sup
 	return s, err
 }
 
-// ListSupermasters implements repo.Supermasters.
-func (d *DB) ListSupermasters(ctx context.Context, tenantID string) ([]store.Supermaster, error) {
-	out := []store.Supermaster{}
+// ListSupermasters implements repo.Supermasters: count, clamp, then one ordered page.
+func (d *DB) ListSupermasters(ctx context.Context, tenantID string, req listquery.Request) ([]store.Supermaster, int, listquery.Request, error) {
+	var out []store.Supermaster
+	var total int
 	err := d.tenant(ctx, tenantID, func(tx pgx.Tx) error {
-		rows, err := tx.Query(ctx, `SELECT `+smCols+` FROM dns_supermasters WHERE tenant_id = $1 ORDER BY ip, nameserver COLLATE "C"`, tenantID)
-		if err != nil {
+		if err := tx.QueryRow(ctx, `SELECT count(*) FROM dns_supermasters WHERE tenant_id = $1`, tenantID).Scan(&total); err != nil {
 			return mapErr(err)
 		}
-		defer rows.Close()
-		for rows.Next() {
-			s, err := scanSupermaster(rows)
-			if err != nil {
-				return err
-			}
-			out = append(out, s)
-		}
-		return rows.Err()
+		req = req.Clamp(total)
+		var err error
+		out, err = querySupermasters(ctx, tx, `SELECT `+smCols+` FROM dns_supermasters WHERE tenant_id = $1 ORDER BY `+req.OrderBy(store.SupermasterList)+` LIMIT $2 OFFSET $3`,
+			tenantID, req.Limit(), req.Offset())
+		return err
 	})
-	return out, err
+	if err != nil {
+		return nil, 0, req, err
+	}
+	return out, total, req, nil
+}
+
+func querySupermasters(ctx context.Context, tx pgx.Tx, sql string, args ...any) ([]store.Supermaster, error) {
+	rows, err := tx.Query(ctx, sql, args...)
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	defer rows.Close()
+	out := []store.Supermaster{}
+	for rows.Next() {
+		s, err := scanSupermaster(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, s)
+	}
+	return out, rows.Err()
 }
 
 // DeleteSupermaster implements repo.Supermasters.
@@ -629,12 +663,24 @@ func (d *DB) ChallengesOlderThan(ctx context.Context, before time.Time, limit in
 
 // AllTemplates implements repo.Backup.
 func (d *DB) AllTemplates(ctx context.Context, tenantID string) ([]store.Template, error) {
-	return d.ListTemplates(ctx, tenantID)
+	var out []store.Template
+	err := d.tenant(ctx, tenantID, func(tx pgx.Tx) error {
+		var err error
+		out, err = queryTemplates(ctx, tx, `SELECT `+templateCols+` FROM dns_zone_templates WHERE tenant_id = $1 ORDER BY lower(name) COLLATE "C", id`, tenantID)
+		return err
+	})
+	return out, err
 }
 
 // AllSupermasters implements repo.Backup.
 func (d *DB) AllSupermasters(ctx context.Context, tenantID string) ([]store.Supermaster, error) {
-	return d.ListSupermasters(ctx, tenantID)
+	var out []store.Supermaster
+	err := d.tenant(ctx, tenantID, func(tx pgx.Tx) error {
+		var err error
+		out, err = querySupermasters(ctx, tx, `SELECT `+smCols+` FROM dns_supermasters WHERE tenant_id = $1 ORDER BY ip, nameserver COLLATE "C"`, tenantID)
+		return err
+	})
+	return out, err
 }
 
 // TenantIDs implements repo.Backup (system scope).

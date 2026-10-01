@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-tangra/go-tangra/v4/listquery"
+
 	"github.com/go-tangra/go-tangra-dns/v4/internal/audit"
 	"github.com/go-tangra/go-tangra-dns/v4/internal/authz"
 	"github.com/go-tangra/go-tangra-dns/v4/internal/memstore"
@@ -73,7 +75,7 @@ func TestCRUD(t *testing.T) {
 	if _, err := svc.Create(ctx, authz.User(tenantB, userA, nil), Input{Name: "Standard"}); err != nil {
 		t.Fatalf("other tenant same name: %v", err)
 	}
-	list, err := svc.List(ctx, userSubj)
+	list, _, _, err := svc.List(ctx, userSubj, treq)
 	if err != nil || len(list) != 1 {
 		t.Fatalf("list = %+v %v", list, err)
 	}
@@ -232,10 +234,10 @@ func TestStoreFailuresAndPermissions(t *testing.T) {
 	if _, err := svc.Create(ctx, userSubj, Input{Name: "x"}); !errors.Is(err, authz.ErrForbidden) {
 		t.Fatalf("viewer create = %v", err)
 	}
-	if _, err := svc.List(ctx, userSubj); err != nil {
+	if _, _, _, err := svc.List(ctx, userSubj, treq); err != nil {
 		t.Fatalf("viewer list = %v", err)
 	}
-	if _, err := svc.List(ctx, authz.Subjects{}); !errors.Is(err, authz.ErrForbidden) {
+	if _, _, _, err := svc.List(ctx, authz.Subjects{}, treq); !errors.Is(err, authz.ErrForbidden) {
 		t.Fatalf("no tenant = %v", err)
 	}
 	if _, err := svc.Create(ctx, authz.Module(tenantA, "spiffe://example.org/svc/x"), Input{Name: "x"}); !errors.Is(err, authz.ErrForbidden) {
@@ -249,7 +251,7 @@ func TestStoreFailuresAndPermissions(t *testing.T) {
 		case "CreateTemplate":
 			_, err = svc.Create(ctx, userSubj, Input{Name: "x"})
 		case "ListTemplates":
-			_, err = svc.List(ctx, userSubj)
+			_, _, _, err = svc.List(ctx, userSubj, treq)
 		case "GetTemplate":
 			_, err = svc.Get(ctx, userSubj, "x")
 		case "UpdateTemplate":
@@ -268,3 +270,5 @@ func TestStoreFailuresAndPermissions(t *testing.T) {
 		t.Fatalf("expand store failure = %v", err)
 	}
 }
+
+var treq, _ = listquery.New(0, 0, "", "", store.TemplateList)

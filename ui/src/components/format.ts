@@ -18,3 +18,10 @@ export function formatDuration(sec: number): string {
   if (m) return `${m}m`
   return `${s}s`
 }
+
+/** An RFC 3339 timestamp as local date and time ("" when absent or invalid). */
+export function formatTime(iso: string | undefined): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleString()
+}

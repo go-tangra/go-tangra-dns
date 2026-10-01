@@ -23,6 +23,8 @@ import (
 
 	"github.com/miekg/dns"
 
+	"github.com/go-tangra/go-tangra/v4/listquery"
+
 	"github.com/go-tangra/go-tangra-dns/v4/internal/audit"
 	"github.com/go-tangra/go-tangra-dns/v4/internal/authz"
 	"github.com/go-tangra/go-tangra-dns/v4/internal/events"
@@ -49,7 +51,6 @@ var (
 const (
 	MaxDescription = 1000
 	MaxNameservers = 16
-	MaxPageSize    = 100
 )
 
 // TemplateExpander expands a zone template into initial rrsets for a new
@@ -478,20 +479,21 @@ func (s *Service) Get(ctx context.Context, subj authz.Subjects, id string) (Deta
 	return d, nil
 }
 
-// List pages the tenant's zones (name order) with the total match count.
-func (s *Service) List(ctx context.Context, subj authz.Subjects, f store.ZoneFilter) ([]store.Zone, int64, error) {
+// List pages the tenant's zones in the order of req (store.ZoneList) with the
+// total match count and req clamped to the last page.
+func (s *Service) List(ctx context.Context, subj authz.Subjects, f store.ZoneFilter, req listquery.Request) ([]store.Zone, int, listquery.Request, error) {
 	if err := s.guard(ctx, subj, authz.ZonesRead); err != nil {
-		return nil, 0, err
+		return nil, 0, req, err
 	}
-	items, total, err := s.d.Store.ListZones(ctx, subj.TenantID, f.Normalized(MaxPageSize))
+	items, total, req, err := s.d.Store.ListZones(ctx, subj.TenantID, f, req)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, req, err
 	}
 	out := make([]store.Zone, 0, len(items))
 	for _, z := range items {
 		out = append(out, view(z))
 	}
-	return out, total, nil
+	return out, total, req, nil
 }
 
 // canonicalFQDN lower-cases s and adds the trailing dot; ok=false for names

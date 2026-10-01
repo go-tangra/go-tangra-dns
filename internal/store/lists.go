@@ -1,0 +1,46 @@
+package store
+
+import "github.com/go-tangra/go-tangra/v4/listquery"
+
+// List definitions of the DNS tables (specs/032-server-side-tables in
+// go-tangra). Sort fields map to constant expressions only; nothing from a
+// request ever reaches SQL.
+var (
+	// ZoneList pages dns_zones in SQL. Names are stored lower-case, so the
+	// byte-wise "C" collation keeps the module's established name order.
+	// The PowerDNS serial is not a column and is therefore not sortable.
+	ZoneList = listquery.Spec{
+		Fields: map[string]listquery.Field{
+			"name":       {Expr: `name COLLATE "C"`},
+			"kind":       {Expr: `kind COLLATE "C"`},
+			"updated_at": {Expr: "updated_at", DefaultDir: listquery.Desc},
+		},
+		Default: "name", TieBreak: "id",
+	}
+	// RecordList pages a zone's PowerDNS rrsets in memory (records package):
+	// "name" is DNS canonical order (labels compared from the root down, apex
+	// first), ties broken by type with SOA leading.
+	RecordList = listquery.Spec{
+		Fields: map[string]listquery.Field{
+			"name": {Expr: "name"},
+			"type": {Expr: "type"},
+			"ttl":  {Expr: "ttl"},
+		},
+		Default: "name", TieBreak: "name,type", DefaultSize: 100, MaxSize: 200,
+	}
+	// TemplateList pages dns_zone_templates in SQL (case-insensitive name).
+	TemplateList = listquery.Spec{
+		Fields: map[string]listquery.Field{
+			"name": {Expr: `lower(name) COLLATE "C"`},
+		},
+		Default: "name", TieBreak: "id",
+	}
+	// SupermasterList pages dns_supermasters in SQL (inet order for ip).
+	SupermasterList = listquery.Spec{
+		Fields: map[string]listquery.Field{
+			"ip":         {Expr: "ip"},
+			"nameserver": {Expr: `nameserver COLLATE "C"`},
+		},
+		Default: "ip", TieBreak: "id",
+	}
+)

@@ -14,6 +14,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/go-tangra/go-tangra/v4/listquery"
+
 	"github.com/go-tangra/go-tangra-dns/v4/internal/audit"
 	"github.com/go-tangra/go-tangra-dns/v4/internal/authz"
 	"github.com/go-tangra/go-tangra-dns/v4/internal/pdns"
@@ -153,20 +155,21 @@ func mapStore(err error) error {
 	return err
 }
 
-// List returns the tenant's templates (name order).
-func (s *Service) List(ctx context.Context, subj authz.Subjects) ([]store.Template, error) {
+// List returns one page of the tenant's templates (store.TemplateList), the
+// total and req clamped to the last page.
+func (s *Service) List(ctx context.Context, subj authz.Subjects, req listquery.Request) ([]store.Template, int, listquery.Request, error) {
 	if err := s.guard(ctx, subj, authz.ZonesRead); err != nil {
-		return nil, err
+		return nil, 0, req, err
 	}
-	items, err := s.d.Store.ListTemplates(ctx, subj.TenantID)
+	items, total, req, err := s.d.Store.ListTemplates(ctx, subj.TenantID, req)
 	if err != nil {
-		return nil, err
+		return nil, 0, req, err
 	}
 	out := make([]store.Template, 0, len(items))
 	for _, t := range items {
 		out = append(out, view(t))
 	}
-	return out, nil
+	return out, total, req, nil
 }
 
 // Get returns one template of the tenant.

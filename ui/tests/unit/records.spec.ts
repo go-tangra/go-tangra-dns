@@ -4,7 +4,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { useConfirm } from '@go-tangra/ui'
 import Records from '@/views/zones/records.vue'
 import { checkContent, recordSetSchema, relativeName, RECORD_HINTS, RECORD_TYPES } from '@/schemas'
-import { fetchMock, makeRouter, reply, select, type, type Call } from './helpers'
+import { fetchMock, makeRouter, pageOf, reply, select, type, type Call } from './helpers'
 
 const zone = { id: 'z1', name: 'example.test.', kind: 'native', masters: [], dnssec: false, origin: 'manual', serial: 12, created_at: '', updated_at: '' }
 const sets = [
@@ -49,7 +49,7 @@ describe('records view', () => {
     await flushPromises()
     return w
   }
-  const list = (url: string, init: RequestInit) => (url.endsWith('/zones/z1') ? zone : init.method === 'GET' ? { items: sets, total: 120 } : undefined)
+  const list = (url: string, init: RequestInit) => (url.endsWith('/zones/z1') ? zone : init.method === 'GET' ? { items: sets, total: 120, page: pageOf(url) } : undefined)
 
   beforeEach(() => {
     setActivePinia(createPinia())
@@ -67,11 +67,11 @@ describe('records view', () => {
     const www = w.find('[data-test="record-row-A-www"]')
     expect(www.text()).toContain('disabled')
     expect(www.find('.line-through').text()).toContain('192.0.2.11')
-    expect(w.find('[data-test=record-pager]').text()).toContain('Page 1 of 3 · 120 record sets')
+    expect(w.text()).toContain('Showing 1–50 of 120')
     expect(w.find('[style]').exists()).toBe(false)
     select(w.find('#record-type').element, 'A')
     await flushPromises()
-    expect(calls.at(-1)!.url).toMatch(/\/zones\/z1\/records\?type=A&page=1&page_size=50$/)
+    expect(calls.at(-1)!.url).toMatch(/\/zones\/z1\/records\?type=A&page=1&page_size=50&sort=name&order=asc$/)
     type(w.find('#record-search').element, 'ww')
     await w.find('#record-search').trigger('keyup', { key: 'Enter' })
     await flushPromises()
@@ -79,6 +79,27 @@ describe('records view', () => {
     await w.find('[aria-label="Next page"]').trigger('click')
     await flushPromises()
     expect(calls.at(-1)!.url).toContain('page=2')
+    // a filter change returns to page 1
+    select(w.find('#record-type').element, 'TXT')
+    await flushPromises()
+    expect(calls.at(-1)!.url).toMatch(/type=TXT&query=ww&page=1&/)
+    w.unmount()
+  })
+
+  it('sorts on the server by name, type and TTL only', async () => {
+    const w = await mountAt(list)
+    const header = (label: string) => w.findAll('th').find((th) => th.text().startsWith(label))!
+    expect(header('Values').find('button').exists()).toBe(false)
+    expect(header('Comment').find('button').exists()).toBe(false)
+    await header('TTL').find('button').trigger('click')
+    await flushPromises()
+    expect(calls.at(-1)!.url).toMatch(/page=1&page_size=50&sort=ttl&order=asc$/)
+    await header('TTL').find('button').trigger('click')
+    await flushPromises()
+    expect(calls.at(-1)!.url).toMatch(/sort=ttl&order=desc$/)
+    await header('Type').find('button').trigger('click')
+    await flushPromises()
+    expect(calls.at(-1)!.url).toMatch(/sort=type&order=asc$/)
     w.unmount()
   })
 
@@ -130,7 +151,16 @@ describe('records view', () => {
   })
 
   it('edit keeps the original key (rename = PUT), custom TTL, delete asks first', async () => {
-    const w = await mountAt((url, init) => (init.method === 'PUT' ? sets[2] : init.method === 'DELETE' ? reply(204) : list(url, init)))
+    let deleted = false
+    const w = await mountAt((url, init) => {
+      if (init.method === 'PUT') return sets[2]
+      if (init.method === 'DELETE') {
+        deleted = true
+        return reply(204)
+      }
+      if (deleted && init.method === 'GET' && url.includes('/records')) return { items: sets.filter((s) => s.type !== 'A'), total: 119, page: 1 }
+      return list(url, init)
+    })
     await w.find('[data-test="record-edit-TXT-odd"]').trigger('click')
     await flushPromises()
     const ed = w.find('[data-test=record-editor]')
@@ -147,7 +177,11 @@ describe('records view', () => {
     useConfirm().answer(true)
     await flushPromises()
     expect(calls.find((c) => c.init.method === 'DELETE')!.url).toBe('/api/dns/v1/zones/z1/records?name=www.example.test.&type=A')
+    // the current page is reloaded so rows and total stay consistent
+    expect(calls.at(-1)!.init.method ?? 'GET').toBe('GET')
+    expect(calls.at(-1)!.url).toContain('/zones/z1/records?')
     expect(w.find('[data-test="record-row-A-www"]').exists()).toBe(false)
+    expect(w.text()).toContain('of 119')
     w.unmount()
   })
 

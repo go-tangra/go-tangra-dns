@@ -1,5 +1,6 @@
 <script setup lang="ts">
-// Record sets of one zone: type filter + name search, a paged table and an
+// Record sets of one zone: type filter + name search, a server-paged and
+// -sorted table (name = DNS canonical order; page/size/sort in the URL) and an
 // inline editor above it (no dialog) with per-type placeholders and hints,
 // TTL presets, multi-value rows with per-value disabled toggles and a comment.
 // SOA is shown read-only. Server refusals (invalid_record with the parser's
@@ -8,9 +9,9 @@
 // next IPAM change).
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { UiPage, UiAlert, UiCard, UiInput, UiSelect, UiNumberInput, UiCheckbox, UiButton, UiBadge, UiDataTable, UiPagination, useConfirm, type Column, type SelectOption } from '@go-tangra/ui'
+import { UiPage, UiAlert, UiCard, UiInput, UiSelect, UiNumberInput, UiCheckbox, UiButton, UiBadge, UiDataTable, useConfirm, useListQuery, type Column, type SelectOption } from '@go-tangra/ui'
 import { useZones } from '@/stores/zones'
-import { useRecords } from '@/stores/records'
+import { useRecords, RECORD_SORTABLE } from '@/stores/records'
 import { recordSetSchema, relativeName, RECORD_HINTS, RECORD_TYPES, TTL_PRESETS, type RecordType } from '@/schemas'
 import type { RecordKey, RecordSet, Zone } from '@/api/types'
 import { describe, explain } from '@/api/client'
@@ -28,7 +29,17 @@ const readOnlyZone = computed(() => zone.value?.kind === 'slave' || zone.value?.
 const typeFilter = ref('')
 const query = ref('')
 const typeOptions: SelectOption[] = [...RECORD_TYPES, 'SOA'].map((t) => ({ title: t, value: t }))
-const reload = () => store.list(zoneId.value, { type: typeFilter.value || undefined, query: query.value.trim() || undefined })
+const lq = useListQuery('records', { sortable: RECORD_SORTABLE, defaultSort: { key: 'name', dir: 'asc' }, defaultSize: 50 })
+async function reload(): Promise<void> {
+  const p = await store.load(zoneId.value, { type: typeFilter.value || undefined, query: query.value.trim() || undefined, ...lq.query.value })
+  if (p) lq.clampTo(p)
+}
+/** Filters changed: back to page 1 (which reloads), or reload in place. */
+function search(): void {
+  if (lq.page.value !== 1) lq.resetPage()
+  else void reload()
+}
+watch(lq.query, () => void reload())
 
 async function loadZone(): Promise<void> {
   zoneError.value = ''
@@ -45,12 +56,12 @@ onMounted(() => {
 })
 watch(zoneId, () => {
   closeEditor()
+  typeFilter.value = ''
+  query.value = ''
   void loadZone()
-  void reload()
+  search()
 })
 
-const pages = computed(() => Math.max(1, Math.ceil(store.total / store.pageSize)))
-const pageLabel = computed(() => `Page ${store.page} of ${pages.value} · ${store.total} record set${store.total === 1 ? '' : 's'}`)
 const short = (name: string) => (zone.value ? relativeName(name, zone.value.name) : name)
 /** The comment the IPAM sync writes on the record sets it maintains. */
 const IPAM_COMMENT = 'managed by IPAM sync'
@@ -59,8 +70,8 @@ type Row = RecordSet & { key: string }
 const rows = computed<Row[]>(() => store.items.map((r) => ({ ...r, key: r.name + '|' + r.type })))
 const columns: Column<Row>[] = [
   { key: 'name', label: 'Name', sortable: true },
-  { key: 'type', label: 'Type', width: 'sm' },
-  { key: 'ttl', label: 'TTL', width: 'sm', align: 'end' },
+  { key: 'type', label: 'Type', width: 'sm', sortable: true },
+  { key: 'ttl', label: 'TTL', width: 'sm', align: 'end', sortable: true },
   { key: 'values', label: 'Values', width: 'lg' },
   { key: 'comment', label: 'Comment', hideOnStack: true },
 ]
@@ -136,7 +147,7 @@ async function save(): Promise<void> {
     if (editor.original) await store.update(editor.original, body)
     else await store.upsert(body)
     closeEditor()
-    await store.list()
+    await reload()
   } catch (e) {
     editor.error = explain(e)
   } finally {
@@ -147,7 +158,8 @@ async function save(): Promise<void> {
 async function remove(r: RecordSet): Promise<void> {
   if (!(await confirm.ask({ title: `Delete ${short(r.name)} ${r.type}?`, text: 'All values of this record set are removed from the DNS server.', danger: true, confirmLabel: 'Delete' }))) return
   try {
-    await store.remove({ name: r.name, type: r.type })
+    const p = await store.remove({ name: r.name, type: r.type })
+    if (p) lq.clampTo(p)
     if (editor.original?.name === r.name && editor.original.type === r.type) closeEditor()
   } catch (e) {
     store.error = describe(e)
@@ -169,8 +181,8 @@ async function remove(r: RecordSet): Promise<void> {
       <UiButton variant="text" icon="mdi-refresh" icon-only label="Refresh" @click="reload" />
     </template>
     <template #filters>
-      <UiSelect id="record-type" v-model="typeFilter" label="Type" sr-only-label placeholder="All types" :options="typeOptions" size="sm" class="w-full md:max-w-40" data-test="record-type" @change="reload" />
-      <UiInput id="record-search" v-model="query" label="Search" sr-only-label placeholder="Search names" type="search" size="sm" class="w-full md:max-w-sm" data-test="record-search" @enter="reload" />
+      <UiSelect id="record-type" v-model="typeFilter" label="Type" sr-only-label placeholder="All types" :options="typeOptions" size="sm" class="w-full md:max-w-40" data-test="record-type" @change="search" />
+      <UiInput id="record-search" v-model="query" label="Search" sr-only-label placeholder="Search names" type="search" size="sm" class="w-full md:max-w-sm" data-test="record-search" @enter="search" />
     </template>
 
     <UiAlert v-if="zoneError" kind="error">{{ zoneError }}</UiAlert>
@@ -205,7 +217,7 @@ async function remove(r: RecordSet): Promise<void> {
     </UiCard>
 
     <UiCard :padded="false">
-      <UiDataTable :items="rows" :columns="columns" :loading="store.loading" row-key="key" caption="Record sets" empty-title="No record sets match" :row-attrs="(r) => ({ 'data-test': 'record-row-' + r.type + '-' + short(r.name) })" data-test="records-table">
+      <UiDataTable :items="rows" :columns="columns" :loading="store.loading" :total="store.total" :page="lq.page.value" :page-size="lq.pageSize.value" :sort="lq.sort.value" row-key="key" caption="Record sets" empty-title="No record sets match" :row-attrs="(r) => ({ 'data-test': 'record-row-' + r.type + '-' + short(r.name) })" data-test="records-table" @update:page="lq.setPage" @update:page-size="lq.setPageSize" @update:sort="lq.setSort">
         <template #cell-name="{ row }">
           <span class="font-mono">{{ short(row.name) }}</span>
           <UiBadge v-if="fromIPAM(row)" size="xs" color="info" class="ms-2" title="Maintained by the IPAM sync" :data-test="'record-ipam-' + row.type + '-' + short(row.name)">IPAM</UiBadge>
@@ -227,8 +239,5 @@ async function remove(r: RecordSet): Promise<void> {
         </template>
       </UiDataTable>
     </UiCard>
-    <div class="flex justify-end">
-      <UiPagination :has-prev="store.page > 1" :has-next="store.page < pages" :label="pageLabel" data-test="record-pager" @prev="store.goTo(store.page - 1)" @next="store.goTo(store.page + 1)" />
-    </div>
   </UiPage>
 </template>

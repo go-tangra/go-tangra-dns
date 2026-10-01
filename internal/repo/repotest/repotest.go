@@ -14,6 +14,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-tangra/go-tangra/v4/listquery"
+
 	"github.com/go-tangra/go-tangra-dns/v4/internal/repo"
 	"github.com/go-tangra/go-tangra-dns/v4/internal/store"
 )
@@ -32,6 +34,7 @@ func Run(t *testing.T, newStore Factory) {
 	cases := map[string]func(*testing.T, repo.Store){
 		"zones":         testZones,
 		"zone filters":  testZoneFilters,
+		"list paging":   testListPaging,
 		"overlap":       testOverlap,
 		"templates":     testTemplates,
 		"supermasters":  testSupermasters,
@@ -149,9 +152,9 @@ func testZoneFilters(t *testing.T, s repo.Store) {
 	}
 	must(t, s.CreateZone(ctx, NewZone(TenantB, "zeta.example.")))
 
-	list := func(f store.ZoneFilter) ([]store.Zone, int64) {
+	list := func(f store.ZoneFilter) ([]store.Zone, int) {
 		t.Helper()
-		items, total, err := s.ListZones(ctx, TenantA, f)
+		items, total, _, err := s.ListZones(ctx, TenantA, f, Req(store.ZoneList, 1, 0, "", ""))
 		must(t, err)
 		return items, total
 	}
@@ -171,12 +174,16 @@ func testZoneFilters(t *testing.T, s repo.Store) {
 	if items, n := list(store.ZoneFilter{Origin: store.OriginIPAM}); n != 1 || items[0].Origin != store.OriginIPAM {
 		t.Fatalf("origin: %d", n)
 	}
-	page, n := list(store.ZoneFilter{Page: 2, PageSize: 2})
-	if n != 5 || len(page) != 2 || page[0].Name != "beta.example." {
+	page, n, applied, err := s.ListZones(ctx, TenantA, store.ZoneFilter{}, Req(store.ZoneList, 2, 2, "", ""))
+	must(t, err)
+	if n != 5 || len(page) != 2 || page[0].Name != "beta.example." || applied.Page != 2 {
 		t.Fatalf("page 2: %d %v", n, names(page))
 	}
-	if beyond, n := list(store.ZoneFilter{Page: 9, PageSize: 2}); n != 5 || len(beyond) != 0 {
-		t.Fatalf("beyond: %d %d", n, len(beyond))
+	// beyond the last page: the last page is returned and reported
+	beyond, n, applied, err := s.ListZones(ctx, TenantA, store.ZoneFilter{}, Req(store.ZoneList, 9, 2, "", ""))
+	must(t, err)
+	if n != 5 || len(beyond) != 1 || applied.Page != 3 || beyond[0].Name != "gamma.example." {
+		t.Fatalf("beyond: %d %v page %d", n, names(beyond), applied.Page)
 	}
 
 	all, err := s.ZonesForTenant(ctx, TenantA)
@@ -193,6 +200,175 @@ func testZoneFilters(t *testing.T, s repo.Store) {
 	must(t, err)
 	if len(namesAll) != 6 || !sort.StringsAreSorted(namesAll) || namesAll[5] != "zeta.example." {
 		t.Fatalf("all names = %v", namesAll)
+	}
+}
+
+// Req builds a valid list request (zero values take the spec's defaults).
+func Req(spec listquery.Spec, page, size int, sort string, order listquery.Dir) listquery.Request {
+	r, err := listquery.New(page, size, sort, order, spec)
+	if err != nil {
+		panic(err)
+	}
+	return r
+}
+
+// pageAll walks every page of a list and returns the ids in order, failing on
+// a total that changes between pages.
+func pageAll(t *testing.T, size int, list func(page int) ([]string, int)) []string {
+	t.Helper()
+	var all []string
+	first, total := list(1)
+	all = append(all, first...)
+	for p := 2; (p-1)*size < total; p++ {
+		ids, n := list(p)
+		if n != total {
+			t.Fatalf("total changed between pages: %d then %d", total, n)
+		}
+		all = append(all, ids...)
+	}
+	if len(all) != total {
+		t.Fatalf("paged %d rows, total %d", len(all), total)
+	}
+	return all
+}
+
+// exactlyOnce fails unless ids holds every id of want exactly once.
+func exactlyOnce(t *testing.T, label string, ids []string, want map[string]bool) {
+	t.Helper()
+	seen := map[string]bool{}
+	for _, id := range ids {
+		if seen[id] {
+			t.Fatalf("%s: %s returned twice", label, id)
+		}
+		if !want[id] {
+			t.Fatalf("%s: %s is not one of the tenant's rows", label, id)
+		}
+		seen[id] = true
+	}
+	if len(seen) != len(want) {
+		t.Fatalf("%s: %d of %d rows returned", label, len(seen), len(want))
+	}
+}
+
+// testListPaging pages every list under every sort field and direction with a
+// small page size: each of the tenant's rows comes back exactly once, the
+// other tenant's never, and the order holds across page boundaries.
+func testListPaging(t *testing.T, s repo.Store) {
+	zoneIDs := map[string]bool{}
+	kinds := []string{store.KindNative, store.KindMaster, store.KindNative, store.KindSlave, store.KindNative, store.KindMaster, store.KindNative}
+	for i, n := range []string{"b.example.", "a.example.", "c.test.", "a.test.", "2.0.192.in-addr.arpa.", "x.example.", "m.example."} {
+		z := NewZone(TenantA, n)
+		z.Kind = kinds[i]
+		if z.Kind == store.KindSlave {
+			z.Masters = []string{"192.0.2.1"}
+		}
+		z.UpdatedAt = base().Add(time.Duration(i%3) * time.Minute) // ties on purpose
+		must(t, s.CreateZone(ctx, z))
+		zoneIDs[z.ID] = true
+	}
+	for _, n := range []string{"other.example.", "zz.example."} {
+		must(t, s.CreateZone(ctx, NewZone(TenantB, n)))
+	}
+	byID := map[string]store.Zone{}
+	for field := range store.ZoneList.Fields {
+		for _, dir := range []listquery.Dir{listquery.Asc, listquery.Desc} {
+			ids := pageAll(t, 2, func(p int) ([]string, int) {
+				items, total, _, err := s.ListZones(ctx, TenantA, store.ZoneFilter{}, Req(store.ZoneList, p, 2, field, dir))
+				must(t, err)
+				out := []string{}
+				for _, z := range items {
+					byID[z.ID] = z
+					out = append(out, z.ID)
+				}
+				return out, total
+			})
+			exactlyOnce(t, "zones "+field+" "+string(dir), ids, zoneIDs)
+			for i := 1; i < len(ids); i++ {
+				a, b := byID[ids[i-1]], byID[ids[i]]
+				var c int
+				switch field {
+				case "name":
+					c = strings.Compare(a.Name, b.Name)
+				case "kind":
+					c = strings.Compare(a.Kind, b.Kind)
+				case "updated_at":
+					c = a.UpdatedAt.Compare(b.UpdatedAt)
+				}
+				if (dir == listquery.Asc && c > 0) || (dir == listquery.Desc && c < 0) {
+					t.Fatalf("zones %s %s out of order at %d: %s then %s", field, dir, i, a.Name, b.Name)
+				}
+			}
+		}
+	}
+	if _, total, _, err := s.ListZones(ctx, TenantB, store.ZoneFilter{}, Req(store.ZoneList, 1, 2, "", "")); err != nil || total != 2 {
+		t.Fatalf("tenant B total = %d (%v)", total, err)
+	}
+	// filtered totals: kind=native, sorted by updated_at desc
+	items, total, _, err := s.ListZones(ctx, TenantA, store.ZoneFilter{Kind: store.KindNative}, Req(store.ZoneList, 1, 3, "updated_at", ""))
+	must(t, err)
+	if total != 4 || len(items) != 3 || items[0].UpdatedAt.Before(items[2].UpdatedAt) {
+		t.Fatalf("native by updated_at: total %d %v", total, names(items))
+	}
+
+	tplIDs := map[string]bool{}
+	for _, n := range []string{"Web", "mail", "Alpha", "beta", "web2"} {
+		tpl := store.Template{ID: store.NewID(), TenantID: TenantA, Name: n, Records: []store.TemplateRecord{}}
+		must(t, s.CreateTemplate(ctx, tpl))
+		tplIDs[tpl.ID] = true
+	}
+	must(t, s.CreateTemplate(ctx, store.Template{ID: store.NewID(), TenantID: TenantB, Name: "other", Records: []store.TemplateRecord{}}))
+	for _, dir := range []listquery.Dir{listquery.Asc, listquery.Desc} {
+		var got []string
+		ids := pageAll(t, 2, func(p int) ([]string, int) {
+			items, total, _, err := s.ListTemplates(ctx, TenantA, Req(store.TemplateList, p, 2, "name", dir))
+			must(t, err)
+			out := []string{}
+			for _, x := range items {
+				out = append(out, x.ID)
+				got = append(got, x.Name)
+			}
+			return out, total
+		})
+		exactlyOnce(t, "templates "+string(dir), ids, tplIDs)
+		want := []string{"Alpha", "beta", "mail", "Web", "web2"}
+		if dir == listquery.Desc {
+			want = []string{"web2", "Web", "mail", "beta", "Alpha"}
+		}
+		if strings.Join(got, ",") != strings.Join(want, ",") {
+			t.Fatalf("templates %s = %v", dir, got)
+		}
+	}
+
+	smIDs := map[string]bool{}
+	for _, p := range [][2]string{{"192.0.2.10", "ns2.example."}, {"2001:db8::1", "ns1.example."}, {"192.0.2.9", "ns3.example."}, {"10.0.0.1", "ns1.example."}, {"192.0.2.10", "ns1.example."}} {
+		sm := store.Supermaster{ID: store.NewID(), TenantID: TenantA, IP: p[0], Nameserver: p[1]}
+		must(t, s.CreateSupermaster(ctx, sm))
+		smIDs[sm.ID] = true
+	}
+	must(t, s.CreateSupermaster(ctx, store.Supermaster{ID: store.NewID(), TenantID: TenantB, IP: "198.51.100.1", Nameserver: "ns.other."}))
+	for field := range store.SupermasterList.Fields {
+		for _, dir := range []listquery.Dir{listquery.Asc, listquery.Desc} {
+			var first string
+			ids := pageAll(t, 2, func(p int) ([]string, int) {
+				items, total, _, err := s.ListSupermasters(ctx, TenantA, Req(store.SupermasterList, p, 2, field, dir))
+				must(t, err)
+				out := []string{}
+				for _, x := range items {
+					if first == "" {
+						first = x.IP + " " + x.Nameserver
+					}
+					out = append(out, x.ID)
+				}
+				return out, total
+			})
+			exactlyOnce(t, "supermasters "+field+" "+string(dir), ids, smIDs)
+			if field == "ip" && dir == listquery.Asc && !strings.HasPrefix(first, "10.0.0.1 ") {
+				t.Fatalf("inet order: first = %s", first)
+			}
+			if field == "ip" && dir == listquery.Desc && !strings.HasPrefix(first, "2001:db8::1 ") {
+				t.Fatalf("inet order desc: first = %s", first)
+			}
+		}
 	}
 }
 
@@ -262,7 +438,7 @@ func testTemplates(t *testing.T, s repo.Store) {
 		t.Fatal("records must be an empty list")
 	}
 
-	list, err := s.ListTemplates(ctx, TenantA)
+	list, _, _, err := s.ListTemplates(ctx, TenantA, Req(store.TemplateList, 1, 0, "", ""))
 	must(t, err)
 	if len(list) != 2 || list[0].Name != "another" || list[1].Name != "Default" {
 		t.Fatalf("list = %+v", list)
@@ -302,12 +478,12 @@ func testSupermasters(t *testing.T, s repo.Store) {
 	}
 	_, err = s.GetSupermaster(ctx, TenantB, a.ID)
 	wantErr(t, err, repo.ErrNotFound)
-	la, err := s.ListSupermasters(ctx, TenantA)
+	la, _, _, err := s.ListSupermasters(ctx, TenantA, Req(store.SupermasterList, 1, 0, "", ""))
 	must(t, err)
 	if len(la) != 2 || la[0].Nameserver != "ns1.example.com." {
 		t.Fatalf("list A = %+v", la)
 	}
-	lb, err := s.ListSupermasters(ctx, TenantB)
+	lb, _, _, err := s.ListSupermasters(ctx, TenantB, Req(store.SupermasterList, 1, 0, "", ""))
 	must(t, err)
 	if len(lb) != 1 || lb[0].IP != "2001:db8::53" {
 		t.Fatalf("list B = %+v", lb)
