@@ -1,44 +1,27 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { api, describe } from '@/api/client'
-import type { Template, TemplateInput } from '@/api/types'
+import { api } from '@/api/client'
+import type { Page, Template, TemplateInput } from '@/api/types'
+import { pagedList } from './paged'
 
-/** The tenant's zone templates (name order, not paged: at most a few dozen). */
+/** The tenant's zone templates, paged server-side (name order by default). */
 export const useTemplates = defineStore('dns-templates', () => {
-  const items = ref<Template[]>([])
-  const loading = ref(false)
-  const error = ref('')
+  const page = pagedList<Template>(() => 'templates')
+  /** Choices for the new-zone form: the first 200 templates by name. */
+  const options = ref<Template[]>([])
 
-  async function list(): Promise<void> {
-    loading.value = true
-    error.value = ''
+  async function loadOptions(): Promise<void> {
     try {
-      items.value = (await api<{ items: Template[] }>('GET', 'templates')).items ?? []
-    } catch (e) {
-      error.value = describe(e)
-    } finally {
-      loading.value = false
+      options.value = (await api<Page<Template>>('GET', 'templates', undefined, { query: { page_size: 200, sort: 'name', order: 'asc' } })).items ?? []
+    } catch {
+      options.value = []
     }
   }
 
   const get = (id: string) => api<Template>('GET', 'templates/' + id)
+  const create = (body: TemplateInput) => api<Template>('POST', 'templates', body)
+  const update = (id: string, body: TemplateInput) => api<Template>('PUT', 'templates/' + id, body)
+  const remove = (id: string) => api('DELETE', 'templates/' + id)
 
-  async function create(body: TemplateInput): Promise<Template> {
-    const t = await api<Template>('POST', 'templates', body)
-    items.value = [...items.value, t].sort((a, b) => a.name.localeCompare(b.name))
-    return t
-  }
-
-  async function update(id: string, body: TemplateInput): Promise<Template> {
-    const t = await api<Template>('PUT', 'templates/' + id, body)
-    items.value = items.value.map((x) => (x.id === id ? t : x))
-    return t
-  }
-
-  async function remove(id: string): Promise<void> {
-    await api('DELETE', 'templates/' + id)
-    items.value = items.value.filter((x) => x.id !== id)
-  }
-
-  return { items, loading, error, list, get, create, update, remove }
+  return { ...page, options, loadOptions, get, create, update, remove }
 })

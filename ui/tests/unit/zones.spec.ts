@@ -4,7 +4,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { useConfirm } from '@go-tangra/ui'
 import Zones from '@/views/zones/index.vue'
 import { zoneSchema, zoneUpdateSchema, zoneNameOk, needsMasters } from '@/schemas'
-import { clickButton, fetchMock, makeRouter, reply, select, type } from './helpers'
+import { clickButton, fetchMock, makeRouter, pageOf, reply, select, type } from './helpers'
 
 const zone = (id: string, name: string, extra: Record<string, unknown> = {}) => ({
   id, name, kind: 'native', masters: [], nameservers: ['ns1.' + name], dnssec: false, origin: 'manual',
@@ -42,11 +42,14 @@ describe('zones view', () => {
   })
 
   it('lists a page with the total, filters by name and kind, pages forward', async () => {
-    const calls = fetchMock(() => ({ items: [zone('z1', 'alpha.test.'), zone('z2', 'beta.test.', { kind: 'master', origin: 'ipam' })], total: 30 }))
-    const w = mount(Zones, { global: { plugins: [makeRouter()] }, attachTo: document.body })
+    const calls = fetchMock((url) => ({ items: [zone('z1', 'alpha.test.'), zone('z2', 'beta.test.', { kind: 'master', origin: 'ipam' })], total: 30, page: pageOf(url) }))
+    const router = makeRouter()
+    await router.push('/dns')
+    const w = mount(Zones, { global: { plugins: [router] }, attachTo: document.body })
     await flushPromises()
     expect(w.find('[data-test="zone-row-z1"]').text()).toContain('alpha.test.')
-    expect(w.find('[data-test=zone-pager]').text()).toContain('Page 1 of 2 · 30 zones')
+    expect(w.text()).toContain('Showing 1–25 of 30')
+    expect(calls[0]!.url).toBe('/api/dns/v1/zones?page=1&page_size=25&sort=name&order=asc')
     expect(w.find('[style]').exists()).toBe(false)
     type(w.find('#zone-search').element, 'alp')
     await w.find('#zone-search').trigger('keyup', { key: 'Enter' })
@@ -58,6 +61,33 @@ describe('zones view', () => {
     await w.find('[aria-label="Next page"]').trigger('click')
     await flushPromises()
     expect(calls.at(-1)!.url).toContain('page=2')
+    // a filter change returns to page 1
+    select(w.find('#zone-origin').element, 'ipam')
+    await flushPromises()
+    expect(calls.at(-1)!.url).toMatch(/origin=ipam&page=1&/)
+    w.unmount()
+  })
+
+  it('sorts on the server by name, kind and updated only; the server page is adopted', async () => {
+    const calls = fetchMock((url) => ({ items: [zone('z1', 'alpha.test.')], total: 30, page: Math.min(pageOf(url), 2) }))
+    const router = makeRouter()
+    await router.push('/dns')
+    const w = mount(Zones, { global: { plugins: [router] }, attachTo: document.body })
+    await flushPromises()
+    const header = (label: string) => w.findAll('th').find((th) => th.text().startsWith(label))!
+    expect(header('Origin').find('button').exists()).toBe(false)
+    expect(header('Description').find('button').exists()).toBe(false)
+    await header('Updated').find('button').trigger('click')
+    await flushPromises()
+    expect(calls.at(-1)!.url).toMatch(/page=1&page_size=25&sort=updated_at&order=desc$/)
+    expect(router.currentRoute.value.query).toMatchObject({ 'zones.sort': 'updated_at', 'zones.order': 'desc' })
+    await header('Kind').find('button').trigger('click')
+    await flushPromises()
+    expect(calls.at(-1)!.url).toMatch(/sort=kind&order=asc$/)
+    // a page beyond the last: the server's clamped page is adopted
+    await router.replace({ query: { ...router.currentRoute.value.query, 'zones.page': '9' } })
+    await flushPromises()
+    expect(router.currentRoute.value.query['zones.page']).toBe('2')
     w.unmount()
   })
 

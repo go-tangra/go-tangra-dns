@@ -5,7 +5,7 @@
 export type ZoneKind = 'native' | 'master' | 'slave' | 'producer' | 'consumer'
 export type ZoneOrigin = 'manual' | 'ipam'
 
-export interface Zone {
+export type Zone = {
   id: string
   name: string
   kind: ZoneKind
@@ -40,9 +40,14 @@ export interface ZoneUpdate {
   description?: string | undefined
 }
 
+/** The list contract response (go-tangra specs/032-server-side-tables). */
 export interface Page<T> {
   items: T[]
   total: number
+  page: number
+  page_size: number
+  sort: string
+  order: 'asc' | 'desc'
 }
 
 export type RecordValue = {

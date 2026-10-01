@@ -27,6 +27,9 @@ export function fetchMock(handler: (url: string, init: RequestInit) => unknown):
   return calls
 }
 
+/** The page a list request asked for (what a server echoes when it is in range). */
+export const pageOf = (url: string) => Number(new URL(url, 'http://test').searchParams.get('page') ?? 1)
+
 export const reply = (status: number, body?: unknown) => ({ __reply: { status, body } })
 
 export const makeRouter = () =>

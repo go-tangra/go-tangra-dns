@@ -297,6 +297,12 @@ export interface components {
         ZonePage: {
             items: components["schemas"]["Zone"][];
             total: number;
+            /** @description the page returned (clamped to the last page) */
+            page: number;
+            page_size: number;
+            sort: string;
+            /** @enum {string} */
+            order: "asc" | "desc";
         };
         ZoneCreate: {
             name: string;
@@ -346,6 +352,12 @@ export interface components {
         RecordPage: {
             items: components["schemas"]["RecordSet"][];
             total: number;
+            /** @description the page returned (clamped to the last page) */
+            page: number;
+            page_size: number;
+            sort: string;
+            /** @enum {string} */
+            order: "asc" | "desc";
         };
         RecordUpdate: {
             original: {
@@ -381,6 +393,13 @@ export interface components {
         };
         TemplateList: {
             items: components["schemas"]["Template"][];
+            total: number;
+            /** @description the page returned (clamped to the last page) */
+            page: number;
+            page_size: number;
+            sort: string;
+            /** @enum {string} */
+            order: "asc" | "desc";
         };
         SupermasterInput: {
             ip: string;
@@ -396,6 +415,13 @@ export interface components {
         };
         SupermasterList: {
             items: components["schemas"]["Supermaster"][];
+            total: number;
+            /** @description the page returned (clamped to the last page) */
+            page: number;
+            page_size: number;
+            sort: string;
+            /** @enum {string} */
+            order: "asc" | "desc";
         };
         RecursorSettings: {
             listen_addresses: string[];
@@ -481,7 +507,8 @@ export interface components {
         id: string;
         page: number;
         pageSize: number;
-        recordPageSize: number;
+        /** @description direction; defaults to the chosen field's default direction */
+        order: "asc" | "desc";
     };
     requestBodies: never;
     headers: never;
@@ -497,6 +524,10 @@ export interface operations {
                 origin?: components["schemas"]["ZoneOrigin"];
                 page?: components["parameters"]["page"];
                 page_size?: components["parameters"]["pageSize"];
+                /** @description default name (asc); updated_at defaults to desc */
+                sort?: "name" | "kind" | "updated_at";
+                /** @description direction; defaults to the chosen field's default direction */
+                order?: components["parameters"]["order"];
             };
             header?: never;
             path?: never;
@@ -504,7 +535,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description zones (name order) */
+            /** @description one page of zones */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -675,7 +706,11 @@ export interface operations {
                 type?: string;
                 query?: string;
                 page?: components["parameters"]["page"];
-                page_size?: components["parameters"]["recordPageSize"];
+                page_size?: components["parameters"]["pageSize"];
+                /** @description default name: DNS canonical order (apex first, SOA leading); default page size 100 */
+                sort?: "name" | "type" | "ttl";
+                /** @description direction; defaults to the chosen field's default direction */
+                order?: components["parameters"]["order"];
             };
             header?: never;
             path: {
@@ -686,7 +721,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description record sets (name, type order); SOA read_only */
+            /** @description one page of record sets; SOA read_only */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -787,14 +822,21 @@ export interface operations {
     };
     listTemplates: {
         parameters: {
-            query?: never;
+            query?: {
+                page?: components["parameters"]["page"];
+                page_size?: components["parameters"]["pageSize"];
+                /** @description default name (case-insensitive) */
+                sort?: "name";
+                /** @description direction; defaults to the chosen field's default direction */
+                order?: components["parameters"]["order"];
+            };
             header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description templates (name order) */
+            /** @description one page of templates */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -913,7 +955,14 @@ export interface operations {
     };
     listSupermasters: {
         parameters: {
-            query?: never;
+            query?: {
+                page?: components["parameters"]["page"];
+                page_size?: components["parameters"]["pageSize"];
+                /** @description default ip (inet order) */
+                sort?: "ip" | "nameserver";
+                /** @description direction; defaults to the chosen field's default direction */
+                order?: components["parameters"]["order"];
+            };
             header?: never;
             path?: never;
             cookie?: never;
