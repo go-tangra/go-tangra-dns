@@ -1,0 +1,131 @@
+# dns join bundle, rendered by the gateway's add-module wizard.
+#   docker compose up -d
+# Values come from .env (written by the gateway: core addresses, generated
+# passwords and keys, and the host inputs you gave). private/ holds the
+# single-use enrolment token, the mesh CA and this bundle's own TLS material.
+# The PowerDNS servers run here too; their HTTP APIs stay on this project's
+# network (never published) and their API keys are generated on this host.
+name: tangra-dns
+services:
+  dns-db:
+    image: timescale/timescaledb:2.17.2-pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: dns
+      POSTGRES_PASSWORD: ${GEN_PASSWORD_1}
+      DNS_APP_PASSWORD: ${GEN_PASSWORD_2}
+    # The server key must belong to the postgres user: copy it before start.
+    entrypoint: ["sh", "-c", "install -d -o postgres -m 0700 /tls-pg && install -o postgres -m 0600 /tls/dns-db.key /tls-pg/server.key && install -o postgres -m 0644 /tls/dns-db.crt /tls-pg/server.crt && exec docker-entrypoint.sh \"$$@\"", "--"]
+    command: ["postgres", "-c", "ssl=on", "-c", "ssl_cert_file=/tls-pg/server.crt", "-c", "ssl_key_file=/tls-pg/server.key"]
+    volumes:
+      - dns-db:/var/lib/postgresql/data
+      - ./private/tls:/tls:ro
+      - ./init-db.sh:/docker-entrypoint-initdb.d/10-app-role.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d dns"]
+      interval: 5s
+      retries: 30
+  # One-shot: PowerDNS API keys (kept once generated) and the API include
+  # files; ownership of the volumes shared with dns.
+  pdns-init:
+    image: alpine:3.20
+    user: "0:0"
+    entrypoint: ["sh", "/init-pdns.sh"]
+    volumes:
+      - ./init-pdns.sh:/init-pdns.sh:ro
+      - dns-secrets:/secrets
+      - pdns-auth-conf:/auth-conf
+      - pdns-recursor-conf:/recursor-conf
+      - pdns-recursor-api:/recursor-api
+      - dns-state:/state
+    restart: "no"
+  pdns-auth:
+    image: powerdns/pdns-auth-49@sha256:b554df74bbde1afa7caedad4af9c91378be6d46d05807d089b3c7c443002e684
+    restart: unless-stopped
+    volumes:
+      - pdns-auth-data:/var/lib/powerdns
+      - pdns-auth-conf:/etc/powerdns/pdns.d
+      - ./pdns/pdns.conf:/etc/powerdns/pdns.conf:ro
+    ports:
+      - "${PDNS_AUTH_BIND_IP}:${PDNS_AUTH_PORT}:53/udp"
+      - "${PDNS_AUTH_BIND_IP}:${PDNS_AUTH_PORT}:53/tcp"
+    healthcheck:
+      test: ["CMD", "pdns_control", "rping"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+    depends_on:
+      pdns-init: { condition: service_completed_successfully }
+  pdns-recursor:
+    image: powerdns/pdns-recursor-53@sha256:175d551ce52fa5c6bf0a0c19d6872791a4c928f6fb00a696534c1174693da3f7
+    restart: unless-stopped
+    volumes:
+      - pdns-recursor-conf:/etc/powerdns/recursor.d
+      - pdns-recursor-api:/var/lib/pdns-recursor-api
+      - ./pdns/recursor.yml:/etc/powerdns/recursor.conf:ro
+    ports:
+      - "${PDNS_RECURSOR_BIND_IP}:${PDNS_RECURSOR_PORT}:53/udp"
+      - "${PDNS_RECURSOR_BIND_IP}:${PDNS_RECURSOR_PORT}:53/tcp"
+    healthcheck:
+      test: ["CMD", "rec_control", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+    depends_on:
+      pdns-init: { condition: service_completed_successfully }
+      pdns-auth: { condition: service_healthy }
+  # Optional (docker compose --profile metrics up -d): the dashboard's
+  # Prometheus; without it the dashboard reports metrics unavailable.
+  dns-prometheus:
+    image: prom/prometheus:v3.5.0
+    restart: unless-stopped
+    profiles: ["metrics"]
+    volumes:
+      - ./pdns/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      pdns-auth: { condition: service_healthy }
+      pdns-recursor: { condition: service_healthy }
+  dns:
+    image: ${MODULE_IMAGE}:${MODULE_VERSION}
+    restart: unless-stopped
+    # The image's non-root user; pdns-init hands it the shared volumes. No
+    # Docker socket: a configuration save that changes a PowerDNS include
+    # file reports restart_required (docker compose restart pdns-auth ...).
+    user: "10001:10001"
+    command: ["-config", "/app/config.yaml"]
+    environment:
+      DNS_KEK: ${GEN_KEY_1}
+      FREYA_ADVERTISE_HOST: ${MODULE_ADVERTISE_HOST}
+    ports:
+      - "${MODULE_BIND_IP}:9965:9965"
+      - "${MODULE_BIND_IP}:9966:9966"
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - ./policy.yaml:/app/policy.yaml:ro
+      - ./private/enrollment.token:/tokens/enrollment.token:ro
+      - ./private/tls/ca.pem:/tls/ca.pem:ro
+      - ${VALKEY_CA_FILE}:/tls/valkey-ca.pem:ro
+      - dns-state:/state
+      - dns-secrets:/secrets:ro
+      - pdns-auth-conf:/pdns-auth-conf
+      - pdns-recursor-conf:/pdns-recursor-conf
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9850/readyz"]
+      interval: 5s
+      timeout: 3s
+      retries: 60
+      start_period: 10s
+    depends_on:
+      dns-db: { condition: service_healthy }
+      pdns-auth: { condition: service_healthy }
+      pdns-recursor: { condition: service_healthy }
+volumes:
+  dns-db: {}
+  dns-state: {}
+  dns-secrets: {}
+  pdns-auth-data: {}
+  pdns-auth-conf: {}
+  pdns-recursor-conf: {}
+  pdns-recursor-api: {}
