@@ -1,0 +1,20 @@
+# Freya service-to-service policy for dns (rendered for this core's trust
+# domain): deny by default; the gateway forwards browser traffic, lcm alone
+# reaches the ACME DNS-01 challenges, any module may read zones.
+version: dns-join-1
+rules:
+  - id: gateway-forwards
+    from: ["spiffe://${TRUST_DOMAIN}/svc/gateway"]
+    to: ["dns"]
+    operations: ["GET *", "HEAD *", "POST *", "PUT *", "PATCH *", "DELETE *", "OPTIONS *"]
+    effect: allow
+  - id: lcm-acme-challenges
+    from: ["spiffe://${TRUST_DOMAIN}/svc/lcm"]
+    to: ["dns"]
+    operations: ["/dns.v1.Challenges/Present", "/dns.v1.Challenges/CleanUp"]
+    effect: allow
+  - id: modules-zones
+    from: ["spiffe://${TRUST_DOMAIN}/svc/*"]
+    to: ["dns"]
+    operations: ["/dns.v1.Zones/List", "/dns.v1.Zones/Get", "/dns.v1.Zones/FindForName", "/grpc.health.v1.Health/Check"]
+    effect: allow
