@@ -9,9 +9,9 @@ require (
 	github.com/go-tangra/go-tangra-auth/sdk/v4 v4.1.0
 	github.com/go-tangra/go-tangra-ipam/sdk/v4 v4.0.0
 	github.com/go-tangra/go-tangra-lcm/sdk/v4 v4.1.0
-	github.com/go-tangra/go-tangra-portal/sdk/v4 v4.1.0
+	github.com/go-tangra/go-tangra-portal/sdk/v4 v4.2.0
 	github.com/go-tangra/go-tangra-warden/sdk/v4 v4.0.0
-	github.com/go-tangra/go-tangra/v4 v4.9.2
+	github.com/go-tangra/go-tangra/v4 v4.10.0
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/miekg/dns v1.1.73
 	github.com/pressly/goose/v3 v3.28.0
