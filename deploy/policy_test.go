@@ -72,7 +72,7 @@ func TestModulesReadZones(t *testing.T) {
 func TestGatewayForwardsHTTPOnly(t *testing.T) {
 	p := load(t)
 	const gw = "spiffe://example.org/svc/gateway"
-	for _, op := range []string{"GET /api/dns/v1/zones", "PUT /api/dns/v1/config", "DELETE /api/dns/v1/zones/x", "GET /ui/remoteEntry.js"} {
+	for _, op := range []string{"GET /api/dns/v1/zones", "PUT /api/dns/v1/config", "DELETE /api/dns/v1/zones/x", "GET /ui/remoteEntry.js", "GET /docs/v1/bundle"} {
 		if !allowed(t, p, gw, op) {
 			t.Errorf("gateway refused %s", op)
 		}
